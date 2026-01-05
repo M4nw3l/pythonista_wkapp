@@ -1,0 +1,2 @@
+<%inherit file="/base/app.css"/>
+${next.body()}

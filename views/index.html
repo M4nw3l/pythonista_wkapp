@@ -1,0 +1,54 @@
+<%inherit file="view.html"/>
+<div class="pt-2">
+<h4 class="pt-1">WKApp index.html placeholder</h3>
+<h5 class="pt-1">Getting started</h5>
+<p>
+Create a views/index.html file: <br />
+
+<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="10" readonly>
+<%text filter="h">
+<!-- inherit from the view.html template to render the views 
+content inside the apps customisable base layout and structure -->
+<%inherit file="view.html"/>
+<!-- Your page content goes here -->
+<div>
+  <h1>Hello World!</h1>
+</div>
+</%text>
+</textarea>
+
+Navigate views as normal, just add links to other views templates:
+<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="15" readonly>
+<%text filter="h">
+<!-- index.html -->
+<%inherit file="view.html"/>
+<div>
+  <h1>Hello World!</h1>
+  <a href="/goodbye.html">Goodbye</a>
+</div>
+
+<!-- goodbye.html -->
+<%inherit file="view.html"/>
+<div>
+  <h1>Goodbye World!</h1>
+  <a href="/index.html">Hello</a>
+</div>
+</%text>
+</textarea>
+
+
+
+</p>
+</div>
+
+<style>
+textarea.code {
+	display: block;
+	width: 90%;
+	font-family: monospace;
+	border: 1px solid #bbb;
+	white-space:pre-wrap;
+	text-align:left;
+	field-sizing: content;
+}
+</style>

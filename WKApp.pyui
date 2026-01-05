@@ -1,0 +1,33 @@
+[
+  {
+    "nodes" : [
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{0, 0}, {1024, 768}}",
+        "class" : "View",
+        "attributes" : {
+          "class" : "View",
+          "frame" : "{{462, 334}, {100, 100}}",
+          "flex" : "WH",
+          "name" : "webview",
+          "custom_class" : "WKAppWebView",
+          "uuid" : "A3BA86F2-B0CB-4DFC-A6E8-583CF11F3790"
+        },
+        "selected" : false
+      }
+    ],
+    "frame" : "{{0, 0}, {1024, 768}}",
+    "class" : "View",
+    "attributes" : {
+      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
+      "enabled" : true,
+      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
+      "custom_class" : "WKAppView",
+      "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "flex" : ""
+    },
+    "selected" : false
+  }
+]
