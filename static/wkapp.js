@@ -2,14 +2,19 @@ class WKApp {
 	constructor() {
 	}
 		
-	#postMessage(name,text)
+	postHandler(handler, args = [], kwargs = {})
 	{
-		window.webkit.messageHandlers[name].postMessage(text);
+		const message = JSON.stringify({
+		  href: window.location.href,
+			args: args,
+			kwargs: kwargs,
+		});
+		window.webkit.messageHandlers[handler].postMessage(message);
 	}
 	
 	postCommand(text)
 	{
-		this.#postMessage('command',text);
+		this.postHandler('command', [text]);
 	}
 	
 	exit() {

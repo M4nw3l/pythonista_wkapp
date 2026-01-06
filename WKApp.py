@@ -37,6 +37,8 @@ class WKAppView(ui.View):
 		return self['webview']
 		
 	def did_load(self):
+		if self.webview is None:
+			raise RuntimeError("WKWebView not loaded")
 		self.webview.clear_cache()
 		pass
 	
@@ -47,20 +49,12 @@ class WKAppView(ui.View):
 		self.webview.delegate = self
 		self.webview.load_url(f'http://localhost:{port}', no_cache=True)
 
-	def webview_did_finish_load(self,sender):
-		pass
-	
 	def will_close(self):
 		self.webview.close()
 		self.app.cleanup()
 	
-	def webview_on_command(self,text):
-		log.warning(f'WKApp - COMMAND "{text}"')
-		if text == "exit":
-			self.close()
-		else:
-		  id = 'editor'
-		  self.webview.eval_js(f'$("#{id}").val(`{text}`);')
+	def webview_on_command(self, sender, text):
+		self.app.webview_on_command(sender, text)
 
 class WKAppServer(threading.Thread):
 	def __init__(self, app, port=8080, server_class=None):
@@ -129,6 +123,7 @@ class WKApp:
 			default_app.push(self.app)
 		else:
 			self._app = app
+		self._app_view = None
 		self.server = server
 		self.server_internal = self.server is None
 		with self.app:
@@ -160,15 +155,20 @@ class WKApp:
 				self.server = None
 
 	def present(self, mode='fullscreen', **kwargs):
-		self.appview = ui.load_view(os.path.join(self.module_path,'WKApp.pyui'))
-		self.appview.load(self)
-		self.appview.present(mode, **kwargs)
+		self._app_view = ui.load_view(os.path.join(self.module_path,'WKApp.pyui'))
+		self.app_view.load(self)
+		self.app_view.present(mode, **kwargs)
 		
 	def run(self, port = 8080, **kwargs):
 		log.warning(f'WKApp - Run')
 		self.start_server(port)
 		self.present(**kwargs)
-		
+	
+	def close(self):
+		if not self.app_view:
+			return
+		self.app_view.close()
+	
 	def cleanup(self):
 		self.stop_server()
 	
@@ -192,6 +192,25 @@ class WKApp:
 		@route('/')
 		def server_index():
 			return server_template('index.html')
+
+	@property
+	def app_view(self):
+		return self._app_view
+
+	@property
+	def app_webview(self):
+		return self.app_view.webview if self.app_view else None
+
+	def webview_on_command(self, sender, text):
+		url = sender.current_url
+		log.warning(f'WKApp - COMMAND {url} "{text}"')
+		text = text.strip()
+		if text == "exit":
+			self.close()
+		else:
+		  id = 'editor'
+		  self.app_webview.eval_js(f'$("#{id}").val(`{text}`);')
+		
 				
 class WKView:
 	pass
