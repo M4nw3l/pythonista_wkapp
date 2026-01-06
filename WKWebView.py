@@ -81,7 +81,9 @@ class WKWebView(ui.View):
         self.log_js_evals = log_js_evals
         self.respect_safe_areas = respect_safe_areas
         super().__init__(**kwargs)
-
+        self.request_url = ''
+        self.requested_url = ''
+        self.current_url = ''
         self.eval_js_queue = queue.Queue()
         
         self.dispatcher = WKWebView._webviewDispatcher()
@@ -180,6 +182,7 @@ class WKWebView(ui.View):
           * Set `no_cache` to `True` to skip the local cache, default is `False`
           * Set `timeout` to a specific timeout value, default is 10 (seconds)
         """
+        self.request_url = url
         if url.startswith('file://'):
             file_path = url[7:]
             if file_path.startswith('/'):
@@ -206,6 +209,7 @@ class WKWebView(ui.View):
     def load_html(self, html):
         # Need to set a base directory to get
         # real js errors
+        self.request_url = 'html:raw'
         current_working_directory = os.path.dirname(os.getcwd())
         root_dir = NSURL.fileURLWithPath_(current_working_directory)
         self.webview.loadHTMLString_baseURL_(html, root_dir)
@@ -578,8 +582,11 @@ class WKWebView(ui.View):
         if allow and deleg is not None:
             if hasattr(deleg, 'webview_should_start_load'):
                 allow = deleg.webview_should_start_load(webview, url, scheme, nav_type)
+        if allow:
+        	webview.requested_url = url
         if allow and not WKWebView.WKWebView.handlesURLScheme_(scheme):
             allow = False
+            webview.current_url = url
             webbrowser.open(url)
         allow_or_cancel = 1 if allow else 0
         decision_handler = ObjCInstance(_decision_handler)
@@ -634,7 +641,7 @@ class WKWebView(ui.View):
               if func:
                 try:
                   func(*args,**kwargs)
-                except e:
+                except Exception as e:
                   print("dispatch error", e)
 
       def stop(self, join = True):
@@ -646,12 +653,13 @@ class WKWebView(ui.View):
     def webView_didCommitNavigation_(_self, _cmd, _webview, _navigation):
         delegate_instance = ObjCInstance(_self)
         webview = delegate_instance._pythonistawebview()
-        webview.dispatcher.invoke(webview, 'webview_did_start_load')
+        webview.dispatcher.invoke(webview, 'webview_did_start_load', webview.requested_url)
 
     def webView_didFinishNavigation_(_self, _cmd, _webview, _navigation):
         delegate_instance = ObjCInstance(_self)
         webview = delegate_instance._pythonistawebview()
-        webview.dispatcher.invoke(webview, 'webview_did_finish_load')
+        webview.current_url = webview.requested_url
+        webview.dispatcher.invoke(webview, 'webview_did_finish_load', webview.current_url)
 
     def webView_didFailNavigation_withError_(_self, _cmd, _webview, _navigation, _error):
         delegate_instance = ObjCInstance(_self)
@@ -660,15 +668,17 @@ class WKWebView(ui.View):
         err = ObjCInstance(_error)
         error_code = int(err.code())
         error_msg = str(err.localizedDescription())
+        url = webview.requested_url
+        webview.current_url = url
         handle = False
         if hasattr(webview, 'webview_did_fail_load'):
           handle = True
         if deleg is not None and hasattr(deleg, 'webview_did_fail_load'):
           handle = True
         if handle:
-          webview.dispatcher.invoke(webview,'webview_did_fail_load',error_code, error_msg)
+          webview.dispatcher.invoke(webview,'webview_did_fail_load',url, error_code, error_msg)
         else:
-          raise RuntimeError(f'WKWebView load failed with code {error_code}: {error_msg}')
+          raise RuntimeError(f'WKWebView load failed to load {url} with code {error_code}: {error_msg}')
 
     def webView_didFailProvisionalNavigation_withError_(
             _self, _cmd, _webview, _navigation, _error):
@@ -695,18 +705,27 @@ class WKWebView(ui.View):
         handler = getattr(webview, 'on_'+name, None)
         deleg = webview.delegate
         deleg_handler = getattr(deleg,'webview_on_'+name, None) if deleg else None
-        def handle_script_message(name,content,handler,deleg_handler):
+        def handle_script_message(webview,name,content,handler,deleg_handler):
           #print("script message handler ",name,content,handler,deleg_handler)
+          args = []
+          kwargs = {}
+          try:
+            data = json.loads(content)
+            args = data['args'] if 'args' in data else args
+            kwargs = data['kwargs'] if 'kwargs' in data else kwargs
+          except:
+            args.append(content)
+
           handled = False
           if handler:
-            handler(content)
+            handler(*args,**kwargs)
             handled = True
           if deleg_handler:
-            deleg_handler(content)
+            deleg_handler(webview,*args,**kwargs)
             handled = True
           if not handled:
             raise Exception(f'Unhandled message from script - name: {name}, content: {content}')
-        webview.dispatcher.dispatch(handle_script_message,name,content,handler,deleg_handler)
+        webview.dispatcher.dispatch(handle_script_message,webview,name,content,handler,deleg_handler)
 
     CustomMessageHandler = create_objc_class(
         'CustomMessageHandler', UIViewController, methods=[
@@ -847,12 +866,12 @@ if __name__ == '__main__':
       print('Will start loading ', url, scheme, nav_type)
       return True
 
-    def webview_did_start_load(self, webview):
-      print('Started loading')
+    def webview_did_start_load(self, webview, url):
+      print('Start loading ', url)
 
-    def webview_did_finish_load(self, webview):
-      print("Finishing loading")
-      print('Finished loading ' + str(webview.eval_js('document.title')))
+    def webview_did_finish_load(self, webview, url):
+      print('Finish loading ', url)
+      print('Title: ' + str(webview.eval_js('document.title')))
 
   app = MyView(background_color='black')
   app.present()
