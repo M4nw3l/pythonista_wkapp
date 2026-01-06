@@ -1,25 +1,71 @@
 <%inherit file="view.html"/>
 <div class="pt-2">
 <h4 class="pt-1">WKApp index.html placeholder</h3>
-<h5 class="pt-1">Getting started</h5>
-<p>
-Create a views/index.html file: <br />
 
-<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="10" readonly>
-<%text filter="h">
-<!-- inherit from the view.html template to render the views 
-content inside the apps customisable base layout and structure -->
+<h5 class="pt-1">Overview</h5>
+<p>
+WKApp is a modern, lightweight and minimal application framework for 
+developing Python applications with desktop-class HTML 5 user interfaces on Apple iOS devices
+in the <a href="https://omz-software.com/pythonista/">Pythonista 3 IDE</a>.
+It provides a simple basis to start creating browser based applications in Pythonista quickly while offering wide customisability capable of developing from simple single page applications through to sophisticated multi-view mobile applications supporting anything you can do in HTML 5 with WebKit support including canvases, browser gaming, media playback, file editing and more. Use any Python libraries from the pip ecosysten that can be installed and supported by Pythonista. And/or use any WebKit/Safafi in browser compatible javascript for client side functionality too. Supporting bi-directional and asyncronous interop between both, Python and JavaScript can work together to produce compelling experiences. Handling styling of your application and concerns like device orientation, screen size and scaling in the same way as any other responsive website using css's powerful, mature and well known feature set. Web frontend libraries Bootstrap 5, for out of the box responsive styling, and JQuery, to ease, extend and perform DOM manipulation, are bundled to help streamline, and give options focused on rapidly developing apps, instead of getting lost down areas such as drawing an apps ui more traditionally for example. The whole of the included base app ui templates and static files are however also customiable and replacable too, so these may be overriden, removed or expanded with plugins etc depending on your applications requirements and needs.
+</p>
+<p>
+Python Dependencies
+<ul>
+<li><a href="https://github.com/bottlepy/bottle">Bottle.py 0.13.4</a></li>
+<li><a href="https://github.com/sqlalchemy/mako">Mako 1.13.10</a></li>
+<li>WKWebView 1.2 (Bundled)
+	<ul>
+	<li>1.2 is a customised extended version which has been updated for WKApp, to implement displaying apps in UIKits WKWebView WebKit browser control. Changes consist mostly of fixes, improvments to reliability, simplifying threading concerns, avoiding/removing the odd crash and deadlock in handling objective-c, python, js interactions here and there and adding a few more helper methods.
+	</li>
+	<li>1.1 - <a href="https://gist.github.com/sbbosco/1290f59d79c6963e62bb678f0f05b035">Gist (@sbbosco)</a></li>
+	<li>1.0 - <a href="https://github.com/mikaelho/pythonista-webview">Github (@mikaelho)</a></li>
+	</ul>
+</li>
+</ul>
+</p>
+<p>
+Bundled Web frontend libraries:
+<ul>
+<li><a href="https://jquery.com">JQuery 3.7.1</a></li>
+<li><a href="https://getbootstrap.com/docs/5.3/getting-started/introduction/">Bootstrap 5.3.8</a></li>
+</ul>
+
+</p>
+<h5 class="pt-1">Getting started</h5>
+<p>First, create your app.py file, the bare minimum code to setup, run and display a WKApp is just three lines as follows.
+
+app.py
+${codeblock('''
+from wkapp import *
+
+app = WKApp(__file__)
+app.run()
+''')}
+</p>
+
+
+<p>
+When you run this file in Pythonista you should see this page! To create your own make a new file views/index.html, which will then replace this document as the placeholder being shown in your apps main view and re-run:
+
+${codeblock('''
+<!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
 <%inherit file="view.html"/>
 <!-- Your page content goes here -->
 <div>
   <h1>Hello World!</h1>
 </div>
-</%text>
-</textarea>
+''')}
 
-Navigate views as normal, just add links to other views templates:
-<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="15" readonly>
-<%text filter="h">
+Congratulations! You've just created a WKApp HTML 5 browser based app on your iOS device.
+Now, you may already be wanting to try some more things out, go right ahead any html/css/javascript should just work. The following is a small overview of some of WKApp features and how they are integrated with Bottle.py as for hosting the WSGI web server for the app and the Mako template engine for rendering pages, components and content from templates with a rich, comprehensive syntax using interweaved Python which can generate html markup, styles and even javascript dynamically.
+</p>
+
+<h6 class="pt-1">Features</h6>
+
+<p>
+Views can be navigated as normal web pages, just add links to other view template files. 
+${codeblock('''
 <!-- index.html -->
 <%inherit file="view.html"/>
 <div>
@@ -33,9 +79,9 @@ Navigate views as normal, just add links to other views templates:
   <h1>Goodbye World!</h1>
   <a href="/index.html">Hello</a>
 </div>
-</%text>
-</textarea>
+''')}
 
+You can define any scheme and custom routes, middleware and handlers may also be added with any constructs supported by Bottle.py.
 
 
 </p>
@@ -52,3 +98,14 @@ textarea.code {
 	field-sizing: content;
 }
 </style>
+
+
+<%def name="codeblock(text, rows=0)">
+	<%
+		if rows == 0:
+		  rows = text.count("\n")+1
+	%>
+	<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="${rows}" readonly>
+	${text}
+	</textarea>
+</%def>
