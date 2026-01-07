@@ -118,7 +118,8 @@ class WKViews:
 		self.views = {}
 		self.view = WKView()
 		self.views[self.view.url] = self.view
-		self.views['about:blank'] = WKView('about:blank')
+		self.about_blank_view = WKView('about:blank')
+		self.views[self.about_blank_view.url] = self.about_blank_view
 	
 	@property
 	def base_url(self):
@@ -135,6 +136,10 @@ class WKViews:
 	@property
 	def next_url(self):
 		return self.next_view.url if not self.next_view is None else ''
+		
+	def cancel_load_view(self):
+		self.load_view = self.about_blank_view
+		return False
 		
 	def prepare_load_view(self, url, scheme, nav_type):
 		log.warning(f'WKViewState - Prepare load {url}')
