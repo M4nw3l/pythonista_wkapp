@@ -22,7 +22,8 @@ import queue, weakref, ctypes, functools, time, os, json, re, sys
 from types import SimpleNamespace
 import threading
 import time
-
+import logging
+log = logging.getLogger(__name__)
 # Helpers for invoking ObjC function blocks with no return value
 
 class _block_descriptor (Structure):
@@ -140,7 +141,8 @@ class WKWebView(ui.View):
 
     def will_close(self):
       self.dispatcher.stop(join=False)
-
+      
+    @on_main_thread
     def close(self):
       self.will_close()
       self.dispatcher.stop(join=False)
@@ -564,6 +566,7 @@ class WKWebView(ui.View):
     class _block_decision_handler(Structure):
         _fields_ = _block_literal_fields(ctypes.c_long)
 
+    #@ui.in_background
     def webView_decidePolicyForNavigationAction_decisionHandler_(
             _self, _cmd, _webview, _navigation_action, _decision_handler):
         delegate_instance = ObjCInstance(_self)
@@ -576,23 +579,31 @@ class WKWebView(ui.View):
 
         allow = True
         scheme = str(ns_url.scheme())
-
-        if allow and hasattr(webview,"webview_should_start_load"):
-        	allow = webview.webview_should_start_load(url, scheme, nav_type)
-        if allow and deleg is not None:
-            if hasattr(deleg, 'webview_should_start_load'):
+        webview.requested_url = url
+        if url != 'about:blank':
+          try:
+            if allow and hasattr(webview,"webview_should_start_load"):
+              allow = webview.webview_should_start_load(url, scheme, nav_type)
+            if allow and deleg is not None:
+              if hasattr(deleg, 'webview_should_start_load'):
                 allow = deleg.webview_should_start_load(webview, url, scheme, nav_type)
-        if allow:
-        	webview.requested_url = url
-        if allow and not WKWebView.WKWebView.handlesURLScheme_(scheme):
-            allow = False
-            webview.current_url = url
-            webbrowser.open(url)
+            if allow and not WKWebView.WKWebView.handlesURLScheme_(scheme):
+              allow = False
+              webview.current_url = url
+              webbrowser.open(url)
+          except Exception as e:
+            log.error(f'WKWebView exception in should_start_load handler', e)
+        log.warning(f'WKWebView {url} {allow}')
         allow_or_cancel = 1 if allow else 0
         decision_handler = ObjCInstance(_decision_handler)
         retain_global(decision_handler)
         blk = WKWebView._block_decision_handler.from_address(_decision_handler)
-        blk.invoke(_decision_handler, allow_or_cancel)
+        blk.invoke(_decision_handler, 1) #allow_or_cancel - dissallowing seems to break closing
+        if not allow:
+          def reload_blank(webview):
+            webview.stop()
+            webview.load_url('about:blank')
+          webview.dispatcher.dispatch(reload_blank,webview)
 
     f = webView_decidePolicyForNavigationAction_decisionHandler_
     f.argtypes = [c_void_p]*3
@@ -636,13 +647,12 @@ class WKWebView(ui.View):
               msg = self.queue.pop(0)
               func = msg.func
               args = msg.args
-              len(args)
               kwargs = msg.kwargs
               if func:
                 try:
                   func(*args,**kwargs)
                 except Exception as e:
-                  print("dispatch error", e)
+                  log.error(f"WKWebView dispatch error {e}, {func}, {args}, {kwargs}")
 
       def stop(self, join = True):
         self.running = False
@@ -668,8 +678,7 @@ class WKWebView(ui.View):
         err = ObjCInstance(_error)
         error_code = int(err.code())
         error_msg = str(err.localizedDescription())
-        url = webview.requested_url
-        webview.current_url = url
+        url = webview.requested_url if not webview.requested_url is None else webview.request_url
         handle = False
         if hasattr(webview, 'webview_did_fail_load'):
           handle = True
@@ -678,7 +687,7 @@ class WKWebView(ui.View):
         if handle:
           webview.dispatcher.invoke(webview,'webview_did_fail_load',url, error_code, error_msg)
         else:
-          raise RuntimeError(f'WKWebView load failed to load {url} with code {error_code}: {error_msg}')
+          log.exception(RuntimeError(f'WKWebView load failed to load {url} with code {error_code}: {error_msg}'))
 
     def webView_didFailProvisionalNavigation_withError_(
             _self, _cmd, _webview, _navigation, _error):
