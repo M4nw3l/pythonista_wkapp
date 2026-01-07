@@ -12,18 +12,24 @@ class WKApp {
 		window.webkit.messageHandlers[handler].postMessage(message);
 	}
 	
-	postCommand(text)
+	invoke(context, target, args = [], kwargs = {})
 	{
-		this.postHandler('command', [text]);
+		var type = context.constructor.name;
+		this.postHandler('invoke', [type, context, target, args, kwargs]);
 	}
 	
 	exit() {
-		this.postCommand('exit');
+		this.invoke(this,'exit');
 	}
 }
 
 class WKView {
-  constructor(app) {
+	constructor(app) {
+		this.app = app;
+	}
+	
+	invoke(name, ...args) {
+		this.app.invoke(this, name, args)
 	}
 }
 
