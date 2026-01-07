@@ -107,10 +107,17 @@ class WKAppServer(threading.Thread):
 		log.warning(f'WKApp - Server Stopped.')
 
 class WKView:
-	def __init__(self, url = '', path = '', template = None, context = None):
+	def __init__(self, app = None, url = '', path = '', template = None, context = None):
+		self.app = app
 		self.url = url
 		self.path = path
 		self.template = template
+		
+	def eval_js(self, script):
+		self.app.app_webview.eval_js(script)
+	
+	def eval_js_async(self, script):
+		self.app.app_webview.eval_js_async(script)
 
 
 class WKViews:
@@ -183,11 +190,14 @@ class WKViews:
 				view = view_class() # call parameterless func or class ctor
 				if view is None:
 					raise Exception(f"view_class is defined but returned None or not an object value = '{view}'")
+				view.app = self.app
 				view.url = url 
 				view.path = path
 				view.template = view_template
+				view.eval_js = functools.partial(WKView.eval_js,view)
+				view.eval_js_async = functools.partial(WKView.eval_js_async,view)
 			else:
-				view = WKView(url, path, view_template)
+				view = WKView(self.app, url, path, view_template)
 			self.views[path] = view
 			self.views[url] = view
 			if hasattr(view, 'on_init'):
