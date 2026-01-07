@@ -3,13 +3,13 @@ WKApp - A modern HTML5 UI framework for building iOS apps with Pythonista 3 and 
 
 https://github.com/M4nw3l/pythonista-wkapp
 '''
+#pthonista specific
+import ui
+
 import os
 import sys
 import threading
-import ui
-
-import logging
-log = logging.getLogger(__name__)
+from urllib.parse import urlparse
 
 import bottle
 from bottle import Bottle, default_app, BaseTemplate
@@ -21,7 +21,11 @@ from bottle import (
 	mako_template as template,
 	mako_view as view,
 )
-import mako
+
+from mako.lookup import TemplateLookup
+
+import logging
+log = logging.getLogger(__name__)
 
 try:
 	from .WKWebView import *
@@ -103,15 +107,18 @@ class WKAppServer(threading.Thread):
 		log.warning(f'WKApp - Server Stopped.')
 
 class WKView:
-	def __init__(self, url = ''):
+	def __init__(self, url = '', path = '', template = None, context = None):
 		self.url = url
-		pass
+		self.path = path
+		self.template = template
+
 
 class WKViews:
 	def __init__(self, app, app_views_path, module_views_path):
 		bottle.TEMPLATE_PATH.clear()
 		bottle.TEMPLATE_PATH.append(app_views_path)
 		bottle.TEMPLATE_PATH.append(module_views_path)
+		self.lookup = TemplateLookup(directories=bottle.TEMPLATE_PATH)
 		self.app = app
 		self.load_view = None
 		self.next_view = None
@@ -140,28 +147,87 @@ class WKViews:
 	def cancel_load_view(self):
 		self.load_view = self.about_blank_view
 		return False
+	
+	def get_url_path(self, url = None, path = None):
+		if url is None and path is None:
+			raise Exception('Must specify one of url or path')
+		if url == 'about:blank':
+			return url, url
+		if not path is None and not path.startswith('/'):
+			path = '/'+path
+		if url is None and not path is None:
+			url = self.base_url + path
+		elif path is None and not url is None:
+			parsed_url = urlparse(url)
+			path = parsed_url.path
+		if url == self.base_url + '/' or path == '/':
+			path = '/index.html'
+			url = self.base_url + path
+		return url, path
 		
+	def get_view(self, url = None, path = None, create = False):
+		view = None
+		url,path = self.get_url_path(url,path)
+		if url == 'about:blank':
+			return self.about_blank_view
+		if create and not url in self.views:
+			try:
+				view_template = self.lookup.get_template(path)
+				if view_template is None:
+					raise Exception("Mako template not found.")
+				log.warning(f'WKViewState - Template found for {path} {view_template}')
+			except:
+				log.warning(f'WKViewState - No template found for path {path} {view_template}')
+			if not view_template is None and hasattr(view_template.module, 'view_class'):
+				view_class = view_template.module.view_class
+				view = view_class() # call parameterless func or class ctor
+				if view is None:
+					raise Exception(f"view_class is defined but returned None or not an object value = '{view}'")
+				view.url = url 
+				view.path = path
+				view.template = view_template
+			else:
+				view = WKView(url, path, view_template)
+			self.views[path] = view
+			self.views[url] = view
+			if hasattr(view, 'on_init'):
+				view.on_init()
+			return view
+		if not url is None:
+			view = self.views[url]
+		elif not path is None:
+			view = self.views[path]
+		return view
+
 	def prepare_load_view(self, url, scheme, nav_type):
-		log.warning(f'WKViewState - Prepare load {url}')
-		#template = BaseTemplate.search()
-		if not url in self.views:
-			self.views[url] = WKView(url)
-		self.load_view = self.views[url]
+		log.warning(f'WKViewState - Preparing load {url}')
+		view = self.get_view(url = url, create = True)
+		self.load_view = view
+		if hasattr(view, "on_prepare"):
+			view.on_prepare()
 		return True
 	
 	def start_load_view(self, url):
 		log.warning(f'WKViewState - Start load {url}')
+		url,path = self.get_url_path(url = url)
 		if self.load_url != url:
 			raise Exception(f'Unexpected view url "{url}" expected "{self.load_url}"')
 		self.load_view = None
-		self.next_view = self.views[url]
+		view = self.get_view(url = url)
+		self.next_view = view
+		if hasattr(view, 'on_loading'):
+			view.on_loading()
 
 	def finish_load_view(self, url):
 		log.warning(f'WKViewState - Finish load {url}')
+		url,path = self.get_url_path(url)
 		if self.next_url != url:
 			raise Exception(f'Unexpected view url "{url}" expected "{self.next_url}"')
 		self.next_view = None
-		self.view = self.views[url]
+		view = self.get_view(url = url)
+		self.view = view
+		if hasattr(view, 'on_loaded'):
+			view.on_loaded()
 
 class WKApp:
 	
@@ -249,6 +315,9 @@ class WKApp:
 		if root != self.module_static_path and not os.path.exists(os.path.join(root,filepath)):
 			root = self.module_static_path
 		return static_file(filepath, root=root)
+		
+	def template(self, path, *args, **kwargs):
+		return template(path, *args, lookup=self.views.lookup, **kwargs)
 	
 	def setup_server_routes(self):
 		
@@ -258,7 +327,8 @@ class WKApp:
 		
 		@route('/<filepath:path>')
 		def server_template(filepath):
-			return template(filepath)
+			view = self.views.get_view(path = filepath, create = True)
+			return self.template(filepath, view = view)
 		
 		@route('/')
 		def server_index():
@@ -278,7 +348,7 @@ class WKApp:
 	
 	@property
 	def view(self):
-		return self.view_state.view
+		return self.views.view
 		
 	def webview_should_start_load(self, webview, url, scheme, nav_type):
 		 start = self.views.prepare_load_view(url, scheme, nav_type)
