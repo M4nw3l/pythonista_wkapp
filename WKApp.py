@@ -107,25 +107,54 @@ class WKAppServer(threading.Thread):
 		log.warning(f'WKApp - Server Stopped.')
 
 class WKView:
-	def __init__(self, app = None, url = '', path = '', template = None, context = None):
+	def __init__(self, *args, **kwargs):
+		WKView.init(self, *args, **kwargs)
+		
+	@classmethod
+	def init(cls, self, app = None, url = '', path = '', template = None, context = None):
+
 		self.app = app
 		self.url = url
 		self.path = path
 		self.template = template
 		
-	def eval_js(self, script):
-		self.app.app_webview.eval_js(script)
+		def eval_js(script):
+			self.app.app_webview.eval_js(script)
 	
-	def eval_js_async(self, script):
-		self.app.app_webview.eval_js_async(script)
+		def eval_js_async(script):
+			self.app.app_webview.eval_js_async(script)
+		
+		self.eval_js = eval_js
+		self.eval_js_async = eval_js_async
+		cls.event(self,'on_init')
+			
+	@classmethod
+	def event(cls, self, name):
+		func = getattr(self, name) if hasattr(self, name) else None
+		if not func is None:
+			func()
 
 
 class WKViews:
-	def __init__(self, app, app_views_path, module_views_path):
+	def __init__(self, app, app_path, app_views_path, module_path, module_views_path):
 		bottle.TEMPLATE_PATH.clear()
 		bottle.TEMPLATE_PATH.append(app_views_path)
 		bottle.TEMPLATE_PATH.append(module_views_path)
-		self.lookup = TemplateLookup(directories=bottle.TEMPLATE_PATH)
+		imports = []
+		#imports.append("import sys")
+		if app_path == module_path:
+			
+			#imports.append("from WKApp import WKView")
+			pass
+		else:
+			#imports.append("import wkapp")
+			#imports.append("from wkapp.WKApp import WKView")
+			pass
+		self.lookup = TemplateLookup(
+			directories=bottle.TEMPLATE_PATH, 
+			#module_directory=os.path.join(app_path,'views-cache'), 
+			imports=imports,
+		)
 		self.app = app
 		self.load_view = None
 		self.next_view = None
@@ -190,18 +219,11 @@ class WKViews:
 				view = view_class() # call parameterless func or class ctor
 				if view is None:
 					raise Exception(f"view_class is defined but returned None or not an object value = '{view}'")
-				view.app = self.app
-				view.url = url 
-				view.path = path
-				view.template = view_template
-				view.eval_js = functools.partial(WKView.eval_js,view)
-				view.eval_js_async = functools.partial(WKView.eval_js_async,view)
+				WKView.init(view, self.app, url, path, view_template)
 			else:
 				view = WKView(self.app, url, path, view_template)
 			self.views[path] = view
 			self.views[url] = view
-			if hasattr(view, 'on_init'):
-				view.on_init()
 			return view
 		if not url is None:
 			view = self.views[url]
@@ -213,8 +235,7 @@ class WKViews:
 		log.warning(f'WKViewState - Preparing load {url}')
 		view = self.get_view(url = url, create = True)
 		self.load_view = view
-		if hasattr(view, "on_prepare"):
-			view.on_prepare()
+		WKView.event(view,'on_prepare')
 		return True
 	
 	def start_load_view(self, url):
@@ -225,8 +246,7 @@ class WKViews:
 		self.load_view = None
 		view = self.get_view(url = url)
 		self.next_view = view
-		if hasattr(view, 'on_loading'):
-			view.on_loading()
+		WKView.event(view, 'on_loading')
 
 	def finish_load_view(self, url):
 		log.warning(f'WKViewState - Finish load {url}')
@@ -236,8 +256,7 @@ class WKViews:
 		self.next_view = None
 		view = self.get_view(url = url)
 		self.view = view
-		if hasattr(view, 'on_loaded'):
-			view.on_loaded()
+		WKView.event(view, 'on_loaded')
 
 class WKApp:
 	
@@ -262,7 +281,7 @@ class WKApp:
 		else:
 			self._app = app
 		self._app_view = None
-		self._views = WKViews(self, self.app_views_path, self.module_views_path)
+		self._views = WKViews(self, self.app_path, self.app_views_path, self.module_path, self.module_views_path)
 		self.host = 'localhost'
 		self.port = 8080
 		self.server = server
