@@ -3,8 +3,11 @@ WKApp - A modern HTML5 UI framework for building iOS apps with Pythonista 3 and 
 
 https://github.com/M4nw3l/pythonista-wkapp
 '''
-#pthonista specific
-import ui
+try:
+	#pythonista specific libraries
+	import ui
+except:
+	raise Exception("Pythonista 3 is required.")
 
 import os
 import sys
