@@ -106,33 +106,123 @@ class WKAppServer(threading.Thread):
 		self.join()
 		log.warning(f'WKApp - Server Stopped.')
 
+class WKConstants:
+	unspecfied = object()
+	
+class WKJavascript:
+	@staticmethod
+	def str_escape(value, delim='`'):
+		value = value.replace(delim,f'\\{delim}')
+		return value
+		
+	@staticmethod
+	def value_to_js(value):
+		if isinstance(value, str):
+			value = WKJavascript.str_escape(value,'`')
+			value = f'`{value}`'
+		elif isinstance(value,bool):
+			value = 'true' if value == True else 'false'
+		elif isinstance(value, (int, float, complex)):
+			pass
+		else:
+			obj = json.dumps(value)
+			value = f'{obj}'
+		return value
+		
+	@staticmethod
+	def value_to_py(value, typ, default = WKConstants.unspecfied):
+		if value is None:
+			if default == WKConstants.unspecfied:
+				if typ in [str,int,float,complex,bool]:
+					return typ()
+				return value
+			else:
+				return default
+		return typ(value)
+		
+	@staticmethod
+	def function_call(name, *args, chain = False):
+		code = [f'{name}(']
+		first = True
+		for arg in args:
+			if not first:
+				code.append(',')
+			code.append(WKJavascript.value_to_js(arg))
+			first = False
+		code.append(')')
+		if not chain:
+			code.append(';')
+		code = ''.join(code)
+		return code
+	
+	@staticmethod
+	def instance_call(instance,name,*args, chain=False):
+		return f'{instance}.'+WKJavascript.function_call(name,*args, chain=chain)
+	
+	@staticmethod
+	def jquery_wrap(selector):
+		return f'$("{selector}")';
+	
+
+class WKElementsRef:
+	def __init__(self, view, selector, js):
+		self.view = view
+		self.selector = selector
+		self.js = js
+		self.elem = js.jquery_wrap(self.selector)
+	
+	def call(self, name, *args):
+		script = self.js.instance_call(self.elem, name, *args)
+		return self.view.eval_js(script);
+	
+	def get(self, name, typ = str, default = WKConstants.unspecfied):
+		value = self.call(name)
+		return self.js.value_to_py(value,typ,default)
+		
+		
+	def set(self, name, value):
+		self.call(name, value)
+
 class WKView:
 	def __init__(self, *args, **kwargs):
 		WKView.init(self, *args, **kwargs)
-		
+	
 	@classmethod
-	def init(cls, self, app = None, url = '', path = '', template = None, context = None):
+	def init(cls, self, app = None, url = '', path = '', template = None, js = WKJavascript):
 
 		self.app = app
 		self.url = url
 		self.path = path
 		self.template = template
-		
+		self.js = WKJavascript
+
+		def webview():
+			return self.app.app_webview
+			
 		def eval_js(script):
-			self.app.app_webview.eval_js(script)
+			return self.webview().eval_js(script)
 	
 		def eval_js_async(script):
-			self.app.app_webview.eval_js_async(script)
+			return self.webview().eval_js_async(script)
 		
+		def elements(selector):
+			return WKElementsRef(self,selector, js)
+		
+		def element(id):
+			return WKElementsRef(self,f'#{id}', js)
+		
+		self.webview = webview
+		self.elements = elements
+		self.element = element
 		self.eval_js = eval_js
 		self.eval_js_async = eval_js_async
 		cls.event(self,'on_init')
 			
 	@classmethod
 	def event(cls, self, name):
-		func = getattr(self, name) if hasattr(self, name) else None
-		if not func is None:
-			func()
+		if hasattr(self, name):
+			 func = getattr(self, name)
+			 func()
 
 
 class WKViews:
