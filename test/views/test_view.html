@@ -5,13 +5,11 @@ class TestView:
 		self.first_name = 'test'
 		self.last_name = ''
 	
-	def on_get(self, **kwargs):
-		print("GET ", kwargs)
+	def on_get(self, request, values, query):
+		print("GET ", values, query)
 	
-	def on_post(self, **kwargs):
-		print("POST ", kwargs)
-
-	
+	def on_post(self, request, values, query):
+		print("POST ", values, query)	
 
 view_class = TestView
 

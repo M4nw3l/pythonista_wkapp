@@ -213,7 +213,7 @@ class WKView:
 		self.url = url
 		self.path = path
 		self.template = template
-		self.js = WKJavascript
+		self.js = js
 
 		def webview():
 			return self.app.app_webview
@@ -225,10 +225,10 @@ class WKView:
 			return self.webview().eval_js_async(script)
 		
 		def elements(selector):
-			return WKElementsRef(self,selector, js)
+			return WKElementsRef(self, selector, js)
 		
 		def element(id):
-			return WKElementsRef(self,f'#{id}', js)
+			return WKElementsRef(self, f'#{id}', js)
 		
 		self.webview = webview
 		self.elements = elements
@@ -369,9 +369,10 @@ class WKViews:
 
 class WKApp:
 	
-	def __init__(self, root = None, app = None, server = None, 
+	def __init__(self, root = None, port = 8080, 
+							host = 'localhost', app = None, server = None, 
 							app_views_path = 'views', app_static_path = 'static', 
-							module_views_path = 'views', module_static_path ='static'):
+							module_views_path = 'views', module_static_path = 'static'):
 		self.module_path = os.path.dirname(__file__)
 		self.module_static_path = os.path.join(self.module_path, module_static_path)
 		self.module_views_path = os.path.join(self.module_path, module_views_path)
@@ -391,8 +392,8 @@ class WKApp:
 			self._app = app
 		self._app_view = None
 		self._views = WKViews(self, self.app_path, self.app_views_path, self.module_path, self.module_views_path)
-		self.host = 'localhost'
-		self.port = 8080
+		self.host = host
+		self.port = port
 		self.server = server
 		self.server_internal = self.server is None
 		with self.app:
@@ -415,28 +416,24 @@ class WKApp:
 	def base_url(self):
 		return f'http://{self.host}:{self.port}'
 	
-	def start_server(self, host='localhost', port=8080):
-		self.host = host
-		self.port = port
-		if self.server is None:
-			self.server = WKAppServer(self.app, host, port)
-			self.server_internal = True
-		self.server.start()
+	def start_server(self):
+		if self.server is None and self.server_internal:
+			self.server = WKAppServer(self.app, self.host, self.port)
+			self.server.start()
 	
 	def stop_server(self):
-		if not self.server is None:
+		if not self.server is None and self.server_internal:
 			self.server.stop()
-			if self.server_internal:
-				self.server = None
+			self.server = None
 
 	def present(self, mode='fullscreen', **kwargs):
 		self._app_view = ui.load_view(os.path.join(self.module_path,'WKApp.pyui'))
 		self.app_view.load(self)
 		self.app_view.present(mode, **kwargs)
 		
-	def run(self, host = 'localhost', port = 8080, mode='fullscreen', **kwargs):
+	def run(self, mode='fullscreen', **kwargs):
 		log.warning(f'WKApp - Run')
-		self.start_server(host, port)
+		self.start_server()
 		self.present(mode, **kwargs)
 	
 	def exit(self):
@@ -454,8 +451,8 @@ class WKApp:
 			root = self.module_static_path
 		return static_file(filepath, root=root)
 		
-	def template(self, path, *args, **kwargs):
-		return template(path, *args, lookup=self.views.lookup, **kwargs)
+	def template(self, path, **kwargs):
+		return template(path, lookup=self.views.lookup, **kwargs)
 	
 	def setup_server_routes(self):
 		
@@ -465,15 +462,18 @@ class WKApp:
 		
 		def get_view(filepath, method):
 			view = self.views.get_view(path = filepath, create = True)
-			kwargs = {'request':request}
+			values={}
+			query={}
+			kwargs = {'request':request, 'values':values, 'query':query}
 			method = method.lower()
 			for k,v in request.query.iteritems():
-				kwargs[k] = v
+				query[k] = v
+				values[k] = v
 				if hasattr(view,k):
 					setattr(view,k,v)
 			if method == 'post':
 				for k,v in request.forms.iteritems():
-					kwargs[k] = v
+					values[k] = v
 					if hasattr(view,k):
 						setattr(view,k,v)
 			WKView.event(view,'on_'+method, **kwargs)
