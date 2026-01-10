@@ -32,7 +32,7 @@ To create your apps main view simply add a file `views/index.html`.
 class IndexView:
 	def test_action(self, text):
 		print(text)
-		self.eval_js(f"$('header').text(`hello javascript! text was {text}`);") # TODO: replace with better binding 
+		self.element('header').set('text',f'hello javascript! text was {text}')
 		
 
 view_class = IndexView
