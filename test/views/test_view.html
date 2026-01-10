@@ -1,4 +1,32 @@
-<%inherit file="base/view.html"/>
+<%!
+
+class TestView:
+	def on_init(self):
+		self.first_name = 'test'
+		self.last_name = ''
+	
+	def on_get(self, **kwargs):
+		print("GET ", kwargs)
+	
+	def on_post(self, **kwargs):
+		print("POST ", kwargs)
+
+	
+
+view_class = TestView
+
+%>
+
+<%inherit file="view.html"/>
 <div class="p-1">
 <a href="/">Back to index.html</a>
+<form action="?hello=query" method="post">
+  <label for="first_name">First name:</label>
+  <input type="text" id="first_name" name="first_name" value="${view.first_name}" />
+  <br/>
+  <label for="last_name">Last name:</label>
+  <input type="text" id="last_name" name="last_name" value="${view.last_name}" />
+  <br/>
+  <input type="submit" value="Submit">
+</form>
 </div>

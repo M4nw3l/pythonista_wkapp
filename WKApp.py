@@ -159,20 +159,37 @@ class WKJavascript:
 		return code
 	
 	@staticmethod
-	def instance_call(instance,name,*args, chain=False):
-		return f'{instance}.'+WKJavascript.function_call(name,*args, chain=chain)
+	def field(instance, name):
+		return f'{instance}.{name}'
 	
 	@staticmethod
-	def jquery_wrap(selector):
+	def field_get(instance, name):
+		return WKJavascript.field(instance,name)+ ';'
+	
+	@staticmethod
+	def field_set(instance, name, value):
+		value = WKJavascript.value_to_js(value)
+		return WKJavascript.field(instance, name) + f' = {value};'
+	
+	@staticmethod
+	def instance_call(instance,name,*args, chain=False):
+		return WKJavascript.field(instance,WKJavascript.function_call(name,*args, chain=chain))
+	
+	@staticmethod
+	def jquery(selector):
 		return f'$("{selector}")';
+	
+	@staticmethod
+	def document_get_element_by_id(id):
+		return WKJavascript.instance_call('document','getElementById',id)
 	
 
 class WKElementsRef:
-	def __init__(self, view, selector, js):
+	def __init__(self, view, selector, js = WKJavascript):
 		self.view = view
 		self.selector = selector
 		self.js = js
-		self.elem = js.jquery_wrap(self.selector)
+		self.elem = js.jquery(self.selector)
 	
 	def call(self, name, *args):
 		script = self.js.instance_call(self.elem, name, *args)
@@ -181,8 +198,7 @@ class WKElementsRef:
 	def get(self, name, typ = str, default = WKConstants.unspecfied):
 		value = self.call(name)
 		return self.js.value_to_py(value,typ,default)
-		
-		
+
 	def set(self, name, value):
 		self.call(name, value)
 
@@ -222,10 +238,10 @@ class WKView:
 		cls.event(self,'on_init')
 			
 	@classmethod
-	def event(cls, self, name):
+	def event(cls, self, name,*args,**kwargs):
 		if hasattr(self, name):
 			 func = getattr(self, name)
-			 func()
+			 func(*args,**kwargs)
 
 
 class WKViews:
@@ -447,14 +463,35 @@ class WKApp:
 		def server_static(filepath):
 			return self.static_file(filepath)
 		
-		@route('/<filepath:path>')
-		def server_template(filepath):
+		def get_view(filepath, method):
 			view = self.views.get_view(path = filepath, create = True)
+			kwargs = {'request':request}
+			method = method.lower()
+			for k,v in request.query.iteritems():
+				kwargs[k] = v
+				if hasattr(view,k):
+					setattr(view,k,v)
+			if method == 'post':
+				for k,v in request.forms.iteritems():
+					kwargs[k] = v
+					if hasattr(view,k):
+						setattr(view,k,v)
+			WKView.event(view,'on_'+method, **kwargs)
+			return view
+		
+		@route('/<filepath:path>')
+		def server_template_get(filepath):
+			view = get_view(filepath, 'GET')
+			return self.template(filepath, view = view)
+			
+		@route('/<filepath:path>', method = 'POST')
+		def server_template_post(filepath):
+			view = get_view(filepath, 'POST')
 			return self.template(filepath, view = view)
 		
 		@route('/')
 		def server_index():
-			return server_template('index.html')
+			return server_template_get('index.html')
 
 	@property
 	def app_view(self):
@@ -484,12 +521,16 @@ class WKApp:
 
 	def webview_on_invoke(self, sender, typ, context, target, args, kwargs):
 		url = sender.current_url
+		url,path = self.views.get_url_path(url = url)
 		log.warning(f'WKApp - INVOKE "{url}" "{typ}" "{context}" "{target}" "{args}" "{kwargs}"')
 		pycontext = None
 		if typ == "WKApp":
 			pycontext = self
 		elif typ == "WKView":
-			pycontext = self.view
+			if url == self.view.url:
+				pycontext = self.view
+			else:
+				pycontext = self.views.get_view(url = url, path = path)
 		else:
 			raise Exception(f"Context type {typ} unhandled")
 		if not hasattr(pycontext,target):
