@@ -1,9 +1,10 @@
 <%!
 
 class IndexPlaceHolderView:
-	#def on_init(self):
+	def on_init(self):
 		#print("View initialise")
 		# automatically called once when the view is created and after view is assigned initial vars
+		self.editor = self.element("editor")
 
 	#def on_prepare(self):
 		#print("View preparing")
@@ -20,6 +21,12 @@ class IndexPlaceHolderView:
 		
 	def test_action(self, text):
 		print(text)
+		
+	def hello_world_action(self, text):
+		print(text)
+		cur = self.editor.get('text')
+		print(cur)
+		self.editor.set('text',cur + text)
 
 view_class = IndexPlaceHolderView
 
@@ -29,7 +36,6 @@ view_class = IndexPlaceHolderView
 <div class="pt-2">
 <h4 class="pt-1">WKApp index.html placeholder</h3>
 <a href="/test_view.html">Test View Navigation</a>
-<button onclick="view.invoke('test_action', 'hellooo')">Test invoke view method</button>
 <button onclick="app.exit()">Exit Application</button>
 <h5 class="pt-1">Overview</h5>
 <p>
@@ -93,24 +99,87 @@ Now, you may already be wanting to try some more things out, go right ahead any 
 <h6 class="pt-1">Features</h6>
 
 <p>
-Views can be navigated as normal web pages, just add links to other view template files. 
+Views are served automatically without wire-up and can be navigated as normal web pages, just drop in html templates into the `./views` folder. 
 ${codeblock('''
 <!-- index.html -->
 <%inherit file="view.html"/>
 <div>
   <h1>Hello World!</h1>
   <a href="/goodbye.html">Goodbye</a>
+  <a href="/index.html">Index</a>
 </div>
 
 <!-- goodbye.html -->
 <%inherit file="view.html"/>
 <div>
   <h1>Goodbye World!</h1>
-  <a href="/index.html">Hello</a>
+  <a href="/hello.html">Hello</a>
+  <a href="/index.html">Index</a>
 </div>
 ''')}
 
+Add python behavior to views with inline class mixins, manipulate elements, receive lifecycle events and hold custom page state.
+
+${codeblock('''
+<%!
+
+class IndexView:
+	def on_init(self):
+		self.editor = self.element('editor')
+		
+	def hello_world_action(self, text):
+		print(text)
+		cur = self.editor.get('text')
+		print(cur)
+		self.editor.set('text',cur + text)
+
+view_class = IndexView
+
+%>
+<%inherit file="view.html"/>
+
+<style type="text/css">
+textarea.editor {
+  width : 95%; 
+  height : 80vh; 
+  overflow : auto;
+  font-style : monospace;
+  font-size : 10pt;
+  font-color : #808080;
+}
+</style>
+
+<div class="p-1">
+<button onclick="view.invoke('hello_world_action', 'Hello World\n')">Say Hello (again)</button>
+</div>
+<div>
+	<textarea id="editor" class="form-control editor" readonly></textarea>
+</div>
+''')}
+
+<div class="p-1">
+<button onclick="view.invoke('hello_world_action', 'Hello World\n')">Say Hello (again)</button>
+</div>
+<div>
+	<textarea id="editor" class="form-control editor" readonly></textarea>
+</div>
+
+
 You can define any scheme and custom routes, middleware and handlers may also be added with any constructs supported by Bottle.py.
+
+app.py
+${codeblock('''
+from wkapp import *
+
+app = WKApp(__file__)
+app.run()
+
+# see https://bottlepy.org/docs/dev/tutorial.html#generating-content for more examples
+@route('/my/route')
+def my_route():
+  return "Hello World!"
+''')}
+
 
 
 </p>
