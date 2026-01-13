@@ -1,6 +1,6 @@
 [project]
 name = "pythonista-wkapp"
-version = "1.0"
+version = "0.0.1"
 requires-python = ">= 3.10"
 dependencies = [
   "bottle",
@@ -13,11 +13,21 @@ build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
 module = "wkapp"
+requires = [
+    "bottle",
+    "Mako"
+]
 author = "M4nw3l"
 home-page = "https://github.com/m4nw3l/pythonista-wkapp"
 dist-name = "pythonista-wkapp"
 description-file = "README.md"
 license = "MIT"
 classifiers = [
-    "Operating System :: iOS"
+		"Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Operating System :: iOS",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: User Interfaces"
 ]
