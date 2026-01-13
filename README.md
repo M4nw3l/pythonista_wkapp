@@ -4,7 +4,7 @@
 WKApp is a modern, lightweight and minimal application framework for developing Python applications with desktop-class HTML 5 user interfaces on Apple iOS devices in the [Pythonista 3 IDE](https://omz-software.com/pythonista/) for iOS.
 It provides a simple basis to start creating browser based applications in Pythonista quickly while offering wide customisability capable of developing from simple single page applications through to sophisticated multi-view mobile applications supporting anything you can do in HTML 5 in a web browser/WebKit.
 
-### Installation and Quick start
+### Getting started
 Pip is the recommended installation method for WKApp. 
 Install [StaSh](https://github.com/ywangd/stash) for Pythonista 3 using the installation instructions from its README first.
 Then install the `pythonista-wkapp` module with pip.
@@ -29,13 +29,19 @@ To create your apps main view simply add a file `views/index.html`.
 ```html
 <%!
 
-class IndexView:
+class MyFirstView:
+	def on_init(self):
+		self.name = ''
+	
+	def on_post(self,request,values,query):
+		print("POST received ", values,query)
+	
 	def test_action(self, text):
 		print(text)
 		self.element('header').set('text',f'hello javascript! text was {text}')
 		
 
-view_class = IndexView
+view_class = MyFirstView
 
 %>
 
@@ -46,6 +52,15 @@ view_class = IndexView
 <button onclick="app.exit()">Exit Application</button>
 <div>
   <h1 id="header">Hello World!</h1>
+  <form method="POST">
+    <label>Enter your name:</label>
+    <input name="name" type="text" value="${view.name}" />
+    <br />
+    <input type="submit" value="Submit" />
+  </form>
+% if view.name != '': 
+    <h2> Hello ${view.name}! </h2>
+% endif
 </div>
 ```
 
