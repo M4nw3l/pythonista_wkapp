@@ -29,7 +29,7 @@ To replace the main view / index placeholder simply create a file `views/index.h
 
 A simple view example:
 
-```html
+```python
 <%!
 
 class MyFirstView:
@@ -44,11 +44,22 @@ class MyFirstView:
 view_class = MyFirstView
 
 %>
-
+```
+```html
 <!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
 <%inherit file="view.html"/>
 <!-- Your page content goes here -->
-<button onclick="view.invoke('test_action', 'hello python!', 'pass','any','args',{},1,1.5)">Call Python</button>
+<script type="text/javascript">
+  function invoke_view_action() {
+  	view.invoke('view_action', 'hello python!', 
+      {pass:'any',json:['compatible'], args:{ints:1}, floats:0.5},
+      ['lists',{},1,2.2],
+      'strings',
+      'numbers',1,1.5
+    );
+  }
+</script>
+<button onclick="invoke_view_action()">Call Python</button>
 <button onclick="app.exit()">Exit Application</button>
 <div>
   <h1 id="header">Hello World!</h1>
