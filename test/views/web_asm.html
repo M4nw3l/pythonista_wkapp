@@ -33,9 +33,9 @@ textarea#stdout {
 </textarea>
 </p>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.29.2/full/pyodide.js"></script>
-
+<script src="https://raw.githubusercontent.com/wasmerio/wasmer-js/refs/heads/main/examples/cdn-coi-serviceworker/coi-serviceworker.js"></script>
 <script defer type="module">
-    import { init, Wasmer } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";	
+    import { init, Wasmer, setRegistry } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";	
 
     function writeln(text) {
         text = $("#stdout").text() + '\n' + text
@@ -56,10 +56,7 @@ textarea#stdout {
        }
     }
 
-    async function runPython() {
-
-
-        //await init();
+    async function runWasmer() {
         try
         {
            await init();
@@ -87,7 +84,7 @@ textarea#stdout {
     	$("#window_secure_context").val(window.isSecureContext ? 'true' : 'false');
     	$("#window_cross_origin_isolated").val(window.crossOriginIsolated ? 'true': 'false');
     	await runPyodide();
-    	await runPython();
+    	await runWasmer();
     });
     //runPython();
 </script>
