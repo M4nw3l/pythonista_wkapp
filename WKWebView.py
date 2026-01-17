@@ -83,7 +83,6 @@ class WKWebView(ui.View):
 		self.eval_js_queue = queue.Queue()
 
 		self.dispatcher = WKWebView._webviewDispatcher()
-		self.dispatcher.daemon = True
 
 		custom_message_handler = WKWebView.CustomMessageHandler.\
       new().autorelease()
@@ -170,7 +169,7 @@ class WKWebView(ui.View):
 		# it is probably initialising some memory / handles somewhere in UIKit
 		# before _create_webview sets up the real WKWebView instance
 		webview = WKWebView.WKWebView.alloc().initWithFrame_(
-		 ((0, 0), (0, 0))).autorelease()
+		 ((0, 0), (self.width, self.height))).autorelease()
 		del webview
 
 	def layout(self):
@@ -316,7 +315,8 @@ class WKWebView(ui.View):
 		js = js + f"meta.setAttribute('content', '{content}');"
 		js = js + "document.getElementsByTagName('head')[0].appendChild(meta);"
 		self.add_script(js, add_to_end=True)
-
+		
+	@on_main_thread
 	def add_script_message_handler_name(self, name):
 		self.user_content_controller.addScriptMessageHandler_name_(
 		 self.custom_message_handler, name)
@@ -619,7 +619,8 @@ class WKWebView(ui.View):
 	class _webviewDispatcher(threading.Thread):
 
 		def __init__(self):
-			threading.Thread.__init__(self)
+			super().__init__()
+			self.daemon = True
 			self.running = False
 			self.queue = []
 
