@@ -14,6 +14,8 @@ Then install the `pythonista-wkapp` module with pip.
 ```
 pip install pythonista-wkapp # DRAFT package is not published yet!
 ```
+Alternatively you can also clone or download a zip of this repository and copy/extract the project files into `site-packages/wkapp`.
+
 To create an app, simply add a folder somewhere containing an `app.py` file as follows.
 
 ```python
