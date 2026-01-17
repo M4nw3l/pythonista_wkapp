@@ -885,7 +885,7 @@ class WKWebView(ui.View):
 				while self.running:
 					if len(self.pool.queue) > 0:
 						self.idle = 0
-						task = self.pool.queue.pop()
+						task = self.pool.queue.pop(0)
 						task.run()
 						del self.pool.tasks[task.id]
 					elif self.idle < self.max_idle:
@@ -896,6 +896,7 @@ class WKWebView(ui.View):
 					else:
 						break
 				self.running = False
+				self.pool.workers.remove(self)
 				
 			def stop(self, join=True):
 				self.running = False
