@@ -4,9 +4,9 @@ class MyFirstView:
 	def on_init(self):
 		self.name = ''
 		
-	def test_action(self, text):
-		print(text)
-		self.element('header').set('text',f'hello javascript! text was {text}')
+	def test_action(self, text,*args):
+		print(text,args)
+		self.element('header').set('text',f'hello javascript! text was {text} args were {args}')
 		
 
 view_class = MyFirstView
@@ -16,7 +16,7 @@ view_class = MyFirstView
 <!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
 <%inherit file="view.html"/>
 <!-- Your page content goes here -->
-<button onclick="view.invoke('test_action', 'hello python!')">Call Python</button>
+<button onclick="view.invoke('test_action', 'hello python!', 'pass','any','args',{},1,1.5)">Call Python</button>
 <button onclick="app.exit()">Exit Application</button>
 <div>
   <h1 id="header">Hello World!</h1>

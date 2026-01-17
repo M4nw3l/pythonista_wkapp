@@ -1,0 +1,210 @@
+<%!
+
+class IndexPlaceHolderView:
+	def on_init(self):
+		#print("View initialise")
+		# automatically called once when the view is created and after view is assigned initial vars
+		self.editor = self.element("editor")
+
+	#def on_prepare(self):
+		#print("View preparing")
+		# automatically called before this view is served allowing state 
+		# to be modified before rendering the page template
+
+	#def on_loading(self):
+		#print("View loading") 
+		# automatically called just after view is served but before fully loaded by browser 
+		# can be used to start async tasks while loading ui etc
+		
+	#def on_loaded(self):
+		#print("View loaded") #  automatically called once view is fully loaded by browser control
+		
+	def test_action(self, text):
+		print(text)
+		
+	def hello_world_action(self, text):
+		print(text)
+		cur = self.editor.get('text')
+		print(cur)
+		self.editor.set('text',cur + text)
+
+view_class = IndexPlaceHolderView
+
+%>
+
+<%inherit file="view.html"/>
+<div class="pt-2">
+<h4 class="pt-1">WKApp index.html placeholder</h3>
+<a href="/first_view.html">First view</a>
+<a href="/test_view.html">Test View</a>
+<button onclick="app.exit()">Exit Application</button>
+<h5 class="pt-1">Overview</h5>
+<p>
+WKApp is a modern, lightweight and minimal application framework for 
+developing Python applications with desktop-class HTML 5 user interfaces on Apple iOS devices
+in the <a href="https://omz-software.com/pythonista/">Pythonista 3 IDE</a>.
+It provides a simple basis to start creating browser based applications in Pythonista quickly while offering wide customisability capable of developing from simple single page applications through to sophisticated multi-view mobile applications supporting anything you can do in HTML 5 with WebKit support including canvases, browser gaming, media playback, file editing and more. Use any Python libraries from the pip ecosysten that can be installed and supported by Pythonista. And/or use any WebKit/Safafi in browser compatible javascript for client side functionality too. Supporting bi-directional and asyncronous interop between both, Python and JavaScript can work together to produce compelling experiences. Handling styling of your application and concerns like device orientation, screen size and scaling in the same way as any other responsive website using css's powerful, mature and well known feature set. Web frontend libraries Bootstrap 5, for out of the box responsive styling, and JQuery, to ease, extend and perform DOM manipulation, are bundled to help streamline, and give options focused on rapidly developing apps, instead of getting lost down areas such as drawing an apps ui more traditionally for example. The whole of the included base app ui templates and static files are however also customiable and replacable too, so these may be overriden, removed or expanded with plugins etc depending on your applications requirements and needs.
+</p>
+<p>
+Python Dependencies
+<ul>
+<li><a href="https://github.com/bottlepy/bottle">Bottle.py 0.13.4</a></li>
+<li><a href="https://github.com/sqlalchemy/mako">Mako 1.13.10</a></li>
+<li>WKWebView 1.2 (Bundled)
+	<ul>
+	<li>1.2 is a customised extended version which has been updated for WKApp, to implement displaying apps in UIKits WKWebView WebKit browser control. Changes consist mostly of fixes, improvments to reliability, simplifying threading concerns, avoiding/removing the odd crash and deadlock in handling objective-c, python, js interactions here and there and adding a few more helper methods.
+	</li>
+	<li>1.1 - <a href="https://gist.github.com/sbbosco/1290f59d79c6963e62bb678f0f05b035">Gist (@sbbosco)</a></li>
+	<li>1.0 - <a href="https://github.com/mikaelho/pythonista-webview">Github (@mikaelho)</a></li>
+	</ul>
+</li>
+</ul>
+</p>
+<p>
+Bundled Web frontend libraries:
+<ul>
+<li><a href="https://jquery.com">JQuery 3.7.1</a></li>
+<li><a href="https://getbootstrap.com/docs/5.3/getting-started/introduction/">Bootstrap 5.3.8</a></li>
+</ul>
+
+</p>
+<h5 class="pt-1">Getting started</h5>
+<p>First, create your app.py file, the bare minimum code to setup, run and display a WKApp is just three lines as follows.
+
+app.py
+${codeblock('''
+from wkapp import *
+
+app = WKApp(__file__)
+app.run()
+''')}
+</p>
+
+
+<p>
+When you run this file in Pythonista you should see this page! To create your own make a new file views/index.html, which will then replace this document as the placeholder being shown in your apps main view and re-run:
+
+${codeblock('''
+<!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
+<%inherit file="view.html"/>
+<!-- Your page content goes here -->
+<div>
+  <h1>Hello World!</h1>
+</div>
+''')}
+
+Congratulations! You've just created a WKApp HTML 5 browser based app on your iOS device.
+Now, you may already be wanting to try some more things out, go right ahead any html/css/javascript should just work. The following is a small overview of some of WKApp features and how they are integrated with Bottle.py as for hosting the WSGI web server for the app and the Mako template engine for rendering pages, components and content from templates with a rich, comprehensive syntax using interweaved Python which can generate html markup, styles and even javascript dynamically.
+</p>
+
+<h6 class="pt-1">Features</h6>
+
+<p>
+Views are served automatically without wire-up and can be navigated as normal web pages, just drop in html templates into the `./views` folder. 
+${codeblock('''
+<!-- index.html -->
+<%inherit file="view.html"/>
+<div>
+  <h1>Hello World!</h1>
+  <a href="/goodbye.html">Goodbye</a>
+  <a href="/index.html">Index</a>
+</div>
+
+<!-- goodbye.html -->
+<%inherit file="view.html"/>
+<div>
+  <h1>Goodbye World!</h1>
+  <a href="/hello.html">Hello</a>
+  <a href="/index.html">Index</a>
+</div>
+''')}
+
+Add python behavior to views with inline class mixins, manipulate elements, receive lifecycle events and hold custom page state.
+
+${codeblock('''
+<%!
+
+class IndexView:
+	def on_init(self):
+		self.editor = self.element('editor')
+		
+	def hello_world_action(self, text):
+		print(text)
+		cur = self.editor.get('text')
+		print(cur)
+		self.editor.set('text',cur + text)
+
+view_class = IndexView
+
+%>
+<%inherit file="view.html"/>
+
+<style type="text/css">
+textarea.editor {
+  width : 95%; 
+  height : 80vh; 
+  overflow : auto;
+  font-style : monospace;
+  font-size : 10pt;
+  font-color : #808080;
+}
+</style>
+
+<div class="p-1">
+<button onclick="view.invoke('hello_world_action', 'Hello World\n')">Say Hello (again)</button>
+</div>
+<div>
+	<textarea id="editor" class="form-control editor" readonly></textarea>
+</div>
+''')}
+
+<div class="p-1">
+<button onclick="view.invoke('hello_world_action', 'Hello World\n')">Say Hello (again)</button>
+</div>
+<div>
+	<textarea id="editor" class="form-control editor" readonly></textarea>
+</div>
+
+
+You can define any scheme and custom routes, middleware and handlers may also be added with any constructs supported by Bottle.py.
+
+app.py
+${codeblock('''
+from wkapp import *
+
+app = WKApp(__file__)
+app.run()
+
+# see https://bottlepy.org/docs/dev/tutorial.html#generating-content for more examples
+@route('/my/route')
+def my_route():
+  return "Hello World!"
+''')}
+
+
+
+</p>
+</div>
+
+<style>
+textarea.code {
+	display: block;
+	width: 90%;
+	font-family: monospace;
+	border: 1px solid #bbb;
+	white-space:pre-wrap;
+	text-align:left;
+	field-sizing: content;
+}
+</style>
+
+
+<%def name="codeblock(text, rows=0)">
+	<%
+		if rows == 0:
+		  rows = text.count("\n")+1
+	%>
+	<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="${rows}" readonly>
+	${text}
+	</textarea>
+</%def>
