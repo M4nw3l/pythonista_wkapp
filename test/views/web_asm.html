@@ -85,7 +85,7 @@ textarea#stdout {
     	//alert("ready");
    		 //$("#window_secure_context").val('hello');
     	$("#window_secure_context").val(window.isSecureContext ? 'true' : 'false');
-    	$("#window_cross_origin_isolated").val(window.isSecureContext ? 'true': 'false');
+    	$("#window_cross_origin_isolated").val(window.crossOriginIsolated ? 'true': 'false');
     	await runPyodide();
     	await runPython();
     });
