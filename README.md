@@ -2,18 +2,9 @@
 ## WKApp - A modern HTML5 UI framework for building iOS apps with Pythonista 3 and WebKit
 
 WKApp is a modern, lightweight and minimal application framework for developing Python applications with desktop-class HTML 5 based user interfaces on Apple iOS devices in the [Pythonista 3 IDE](https://omz-software.com/pythonista/) for iOS. 
-It is a comprehensive and fully featured alternative to Pythonista's native app `ui` library, allowing user interfaces to be created with standard web technologies. 
-Providing a straightforward basis to create web based UI for your Python iOS applications quickly, easily and from entirely within Pythonista. 
-Supporting almost anything you can make in a browser with HTML5, CSS, JavaScript even WebAssembly and browser based 2D/3D graphics! 
-Using powerful Python templating for dynamic views HTML/CSS/JavaScript rendering with Mako, instanced view state binding supporting arbitarry GET and POST values and, bi-directional interop from Python to JavaScript and JavaScript to Python via JSON over thread-safe browser message handlers. 
-Making creating user interfaces for Pythonista based Python Apps as simple as adding a new .html view template file into your projects views folder. Templated application views are then served locally from a Bottle.py HTTP/WSGI server and shown in the bundled WKWebView component.
+It is a comprehensive and fully featured alternative to Pythonista's native app `ui` library, allowing user interfaces to be created with standard web technologies. Using powerful Python templating for dynamic HTML5/CSS/JavaScript views rendering with Mako, simple instanced view state binding supporting auto-wiring GET/POST values and two way Python/JavaScript interop via JSON over thread-safe message handlers. 
 
-As Views are just plain HTML5, CSS and JavaScript, high levels of richness and sophistication can be achieved in user interfaces, relatively faster and more robustly, by comparison, due to how versatile and mature web and browser technologies ecosystems are.
-WKApp should support almost any html5 markup, css, javascript, libraries, stylesheets, canvases, forms and input components etc that are generally supported by Safari/WebKit. 
-WKWebView on iOS is also referenced specifically by the browser compatibility tables in [Mozilla's Docs](https://developer.mozilla.org/en-US/docs/Web) which should be used as the main guidance to determine if a html/css/javascript feature will work in the underlying iOS WKWebView browser component or not. 
-jQuery and Bootstrap are bundled into the module embedded default application template to provide for ease of DOM manipulation and a predictable responsive styling scheme out of the box. 
-However, Bootstrap may be replaced with another responsive styling / display library if preferred, along with the whole default application template may be overidden too. 
-As the default template is meant as only a basic starting point to start with being able to show something on the screen and be customised as desired or wanted. 
+Creating user interfaces for Python Apps in Pythonista becomes as simple as adding new .html view template files into your project. Which are then served locally from a Bottle.py HTTP/WSGI server and shown in a native WKWebView browser component. WKApp supports creating user interfaces with anything supported by modern web browsers using HTML5, CSS, JavaScript or even WebAssembly and browser based 2D/3D graphics! 
 
 
 ## Getting started
