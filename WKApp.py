@@ -343,7 +343,6 @@ class WKViews:
 					raise Exception(
 					 f"view_class is defined but returned None or not an object value = '{view}'"
 					)
-				#WKView.init(view, self.app, url, path, view_template)
 			else:
 				view = WKView(self.app, url, path, view_template)
 			self.views[path] = view
