@@ -2,6 +2,7 @@
 ## WKApp - A modern HTML5 UI framework for building iOS apps with Pythonista 3 and WebKit
 
 WKApp is a modern, lightweight and minimal application framework for developing Python applications with desktop-class HTML 5 user interfaces on Apple iOS devices in the [Pythonista 3 IDE](https://omz-software.com/pythonista/) for iOS.
+
 It provides a simple basis to start creating browser based applications in Pythonista quickly while offering wide customisability capable of developing from simple single page applications through to sophisticated multi-view mobile applications supporting anything you can do in HTML 5 in a web browser/WebKit.
 
 ### Getting started
@@ -11,7 +12,7 @@ Then install the `pythonista-wkapp` module with pip.
 ```
 pip install pythonista-wkapp # DRAFT package is not published yet!
 ```
-To create the basis of an app, simply create the root folder somewhere and add an `app.py` file as follows.
+Then to create the basis of an app, simply create the root folder somewhere and add an `app.py` file as follows.
 
 ```python
 
@@ -68,8 +69,8 @@ WKApp requires the Pythonista 3 app on iOS to run but otherwise uses a minimal s
 
 - [Bottle.py 0.13.4](https://github.com/bottlepy/bottle)
 - [Mako 1.13.10](https://github.com/sqlalchemy/mako)
-- WKWebView 1.2 (Bundled)
-	- 1.2 is a customised extended version which has been updated for WKApp, to implement displaying apps in UIKits WKWebView WebKit browser control. Changes consist mostly of fixes, improvments to reliability, simplifying threading concerns, avoiding/removing the odd crash and deadlock in handling objective-c, python, js interactions here and there and adding a few more helper methods.
+- pythonista-wkwebview 1.2 (Bundled)
+	- 1.2 is an extended version for WKApp, updated with fixes and new features for using the native WKWebView from UIKit on iOS. Including a WKURLSchemeHandler implementation allowing creating custom url schemes with a single handler in a subclass, simplified javascript handlers threading concerns with a Dispatcher, arbitrary arguments passing from javascript to python via json. 
 	- 1.1 [Gist (@sbbosco)](https://gist.github.com/sbbosco/1290f59d79c6963e62bb678f0f05b035)
 	- 1.0 [Github (@mikaelho)](https://github.com/mikaelho/pythonista-webview)
 
