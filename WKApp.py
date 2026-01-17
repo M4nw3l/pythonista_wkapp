@@ -15,7 +15,7 @@ import inspect
 import os
 import sys
 import threading
-from urllib.parse import urlparse, unquote as urldecode
+from urllib.parse import urlparse, quote as urlencode, unquote as urldecode
 
 import requests
 
@@ -75,8 +75,6 @@ class WKAppView(ui.View):
 	def did_load(self):
 		if self.webview is None:
 			raise RuntimeError("WKWebView not loaded")
-		self.webview.clear_cache()
-		pass
 
 	def load(self, app):
 		self.app = app
@@ -84,7 +82,7 @@ class WKAppView(ui.View):
 			raise RuntimeError("WKWebView not loaded")
 		self.webview.delegate = self.app
 		self.webview.scheme_handler = self.app
-		self.webview.load_url(self.app.base_url, no_cache=True)
+		self.webview.load_url(self.app.app_url, no_cache=self.app.no_cache, clear_cache=self.app.clear_cache)
 
 	def will_close(self):
 		self.webview.close()
@@ -502,16 +500,25 @@ class WKAppPlugin:
 				return False
 		return True
 
-	def apply(self, callback, route):
+	def response_headers(self):
 		# Enable cross origin isolation for browser to consider context secure enough for full web assembly and webgl support
 		# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements
-		#response.add_header('Permissions-Policy', 'cross-origin-isolated=self')
+		response.add_header('Permissions-Policy', 'cross-origin-isolated=self')
+		response.add_header('Access-Control-Allow-Origin', '*')
+		response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
+		response.add_header('Access-Control-Allow-Methods', '*')
+		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
+		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
+		response.add_header('Cross-Origin-Resource-Policy', 'cross-origin')
+
+	def apply(self, callback, route):
 		if not self.has_args(callback, 'view'):
 			return callback
 
 		def wrapper(*args, **kwargs):
 			view = self.app.get_view(url=request.url, create=True)
 			kwargs['view'] = view
+			self.response_headers()
 			return callback(*args, **kwargs)
 
 		return wrapper
@@ -528,7 +535,10 @@ class WKApp:
 	             app_views_path='views',
 	             app_static_path='static',
 	             module_views_path='views',
-	             module_static_path='static'):
+	             module_static_path='static',
+	             custom_scheme = False,
+	             no_cache = True,
+	             clear_cache = False):
 		self.module_path = os.path.dirname(__file__)
 		self.module_static_path = os.path.join(self.module_path, module_static_path)
 		self.module_views_path = os.path.join(self.module_path, module_views_path)
@@ -540,7 +550,9 @@ class WKApp:
 		self._app_path = root
 		self.app_static_path = os.path.join(self.app_path, app_static_path)
 		self.app_views_path = os.path.join(self.app_path, app_views_path)
-
+		self.custom_scheme = custom_scheme
+		self.no_cache = no_cache
+		self.clear_cache = clear_cache
 		if app is None:
 			self._app = Bottle()
 			default_app.push(self.app)
@@ -554,7 +566,7 @@ class WKApp:
 		self.port = port
 		self.server = server
 		self.server_internal = self.server is None
-
+		
 		self.plugin = WKAppPlugin(self)
 		self.app.install(self.plugin)
 		with self.app:
@@ -578,7 +590,9 @@ class WKApp:
 		
 	@property
 	def app_url(self):
-		return f'wkapp://app/'
+		if self.custom_scheme:
+			return f'wkapp://localhost/'
+		return self.base_url
 
 	def start_server(self):
 		if self.server is None and self.server_internal:
@@ -590,15 +604,17 @@ class WKApp:
 			self.server.stop()
 			self.server = None
 
-	def present(self, mode='fullscreen', **kwargs):
+	def present(self, mode='fullscreen', no_cache = True, clear_cache = False, **kwargs):
 		self._app_view = ui.load_view(os.path.join(self.module_path, 'WKApp.pyui'))
+		self.no_cache = no_cache
+		self.clear_cache = clear_cache
 		self.app_view.load(self)
 		self.app_view.present(mode, **kwargs)
 
-	def run(self, mode='fullscreen', **kwargs):
+	def run(self, **kwargs):
 		log.warning(f'WKApp - Run')
 		self.start_server()
-		self.present(mode, **kwargs)
+		self.present(**kwargs)
 
 	def exit(self):
 		if not self.app_view:
@@ -617,11 +633,6 @@ class WKApp:
 		return static_file(filepath, root=root)
 
 	def template(self, path, **kwargs):
-		response.add_header('Access-Control-Allow-Origin', '*')
-		response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
-		response.add_header('Access-Control-Allow-Methods', '*')
-		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
-		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
 		return self.views.template(path, **kwargs)
 
 	def get_view(self, url=None, path=None, create=False):
@@ -718,16 +729,14 @@ class WKApp:
 		
 	def webview_scheme_wkapp(self, webview, task):
 		command = task.host
-		if command == "app" or command == "proxy":
+		if command == "localhost" or command == "proxy":
 			url = task.path
-			if command == "app":
+			if command == "localhost":
 				url = self.base_url + url
 			else:
 				url = urldecode(url[1:])
 			
 			response = requests.request(task.method, url, headers = task.headers, data = task.body)
-			#print(response.headers.get('Content-Type'))
-			#print(response.content.decode("utf8"))
 			task.finish(
 				status_code=response.status_code, 
 				headers = response.headers,
