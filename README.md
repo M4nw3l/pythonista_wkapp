@@ -14,7 +14,7 @@ Then install the `pythonista-wkapp` module with pip.
 ```
 pip install pythonista-wkapp # DRAFT package is not published yet!
 ```
-Then to create the basis of an app, simply create the root folder somewhere and add an `app.py` file as follows.
+To create an app, simply add a folder somewhere containing an `app.py` file as follows.
 
 ```python
 
@@ -25,10 +25,12 @@ app.run()
 
 ```
 
-Run this file and you should see a fullscreen browser control and placeholder page shown. You can then just start making your own views with Mako templates straight away!
+Run this file and you should see a fullscreen browser control and the main view index.html placeholder page shown. 
+You can then start making your own views straight away!
 
-To replace the main view / index placeholder: 
-- Create a file `views/index.html`, 
+To replace the initial main view / index.html placeholder page: 
+- Create a `views` folder in the same folder as your `app.py` file.
+- Create a file `views/index.html`.
 - Then add your html and setup a `view_class` mixin definition like as below. 
 	- An instance of this class will be maintained with your view which can be used to store state, bind/manipulate elements, provide functions to be called from Javascript and evaluate Javascript from Python in the view to inspect and alter the DOM or backend state.
 
