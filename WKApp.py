@@ -11,6 +11,7 @@ try:
 except:
 	raise Exception("Pythonista 3 is required.")
 
+import inspect
 import os
 import sys
 import threading
@@ -21,6 +22,7 @@ from bottle import Bottle, default_app, BaseTemplate
 from bottle import WSGIRefServer
 from bottle import (
  request,
+ response,
  route,
  static_file,
  mako_template as template,
@@ -40,7 +42,10 @@ except:
 
 
 class WKAppWebView(WKWebView):
-
+	
+	def on_javascript_console_message(self, level, content):
+		log.warning(f'WKAppWebView - JS - {level.upper()}: {content}')
+			
 	def webview_did_start_load(self, url):
 		log.warning(f'WKAppWebView - Start loading {url}')
 
@@ -382,6 +387,43 @@ class WKViews:
 		view.event('on_loaded')
 
 
+class WKAppPlugin:
+
+	def __init__(self, app):
+		self.app = app
+		self.callbacks = {}
+		pass
+
+	def setup(self, app):
+		pass
+
+	def has_args(self, callback, *args):
+		spec = self.callbacks.get(callback, None)
+		if spec is None:
+			spec = inspect.getfullargspec(callback)
+			spec = spec[0]
+			self.callbacks[callback] = spec
+		for arg in args:
+			if not arg in spec:
+				return False
+		return True
+
+	def apply(self, callback, route):
+		# Enable cross origin isolation for browser to consider context secure enough for full web assembly and webgl support
+		# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements
+		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
+		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
+		if not self.has_args(callback, 'view'):
+			return callback
+
+		def wrapper(*args, **kwargs):
+			view = self.app.get_view(url=request.url, create=True)
+			kwargs['view'] = view
+			return callback(*args, **kwargs)
+
+		return wrapper
+
+
 class WKApp:
 
 	def __init__(self,
@@ -411,6 +453,7 @@ class WKApp:
 			default_app.push(self.app)
 		else:
 			self._app = app
+
 		self._app_view = None
 		self._views = WKViews(self, self.app_path, self.app_views_path,
 		                      self.module_path, self.module_views_path)
@@ -418,6 +461,9 @@ class WKApp:
 		self.port = port
 		self.server = server
 		self.server_internal = self.server is None
+
+		self.plugin = WKAppPlugin(self)
+		self.app.install(self.plugin)
 		with self.app:
 			self.setup_server_routes()
 
@@ -476,48 +522,48 @@ class WKApp:
 	def template(self, path, **kwargs):
 		return template(path, lookup=self.views.lookup, **kwargs)
 
+	def get_view(self, url=None, path=None, create=False):
+		view = self.views.get_view(url=url, path=path, create=create)
+		if view is None:
+			return view
+		values = {}
+		query = {}
+		kwargs = {'request': request, 'values': values, 'query': query}
+		method = request.method
+		for k, v in request.query.iteritems():
+			query[k] = v
+			values[k] = v
+			if hasattr(view, k):
+				setattr(view, k, v)
+		if method == 'POST':
+			for k, v in request.forms.iteritems():
+				values[k] = v
+				if hasattr(view, k):
+					setattr(view, k, v)
+		view.event('on_' + method, **kwargs)
+		return view
+
 	def setup_server_routes(self):
 
 		@route('/static/<filepath:path>')
 		def server_static(filepath):
 			return self.static_file(filepath)
 
-		def get_view(filepath, method):
-			view = self.views.get_view(path=filepath, create=True)
-			values = {}
-			query = {}
-			kwargs = {'request': request, 'values': values, 'query': query}
-			method = method.lower()
-			for k, v in request.query.iteritems():
-				query[k] = v
-				values[k] = v
-				if hasattr(view, k):
-					setattr(view, k, v)
-			if method == 'post':
-				for k, v in request.forms.iteritems():
-					values[k] = v
-					if hasattr(view, k):
-						setattr(view, k, v)
-			view.event('on_' + method, **kwargs)
-			return view
-
 		@route('/<filepath:path>')
-		def server_template_get(filepath):
-			view = get_view(filepath, 'GET')
+		def server_template_get(filepath, view):
 			return self.template(filepath, view=view)
 
 		@route('/<filepath:path>', method='POST')
-		def server_template_post(filepath):
-			view = get_view(filepath, 'POST')
+		def server_template_post(filepath, view):
 			return self.template(filepath, view=view)
 
 		@route('/')
-		def server_index_get():
-			return server_template_get('index.html')
+		def server_index_get(view):
+			return server_template_get('index.html', view)
 
 		@route('/', method='POST')
-		def server_index_post():
-			return server_template_post('index.html')
+		def server_index_post(view):
+			return server_template_post('index.html', view)
 
 	@property
 	def app_view(self):
