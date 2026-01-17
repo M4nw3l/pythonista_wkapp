@@ -28,7 +28,6 @@ from bottle import (
  route,
  static_file,
  mako_template as template,
- mako_view as view,
 )
 
 from mako.lookup import TemplateLookup
@@ -509,8 +508,8 @@ class WKAppPlugin:
 		#response.add_header('Access-Control-Allow-Origin', '')
 		#response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
 		response.add_header('Access-Control-Allow-Methods', '*')
-		#response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
-		#response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
+		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
+		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
 		if not self.has_args(callback, 'view'):
 			return callback
 
@@ -693,9 +692,7 @@ class WKApp:
 	def webview_on_invoke(self, sender, typ, context, target, args, kwargs):
 		url = sender.current_url
 		url, path = self.views.get_url_path(url=url)
-		log.warning(
-		 f'WKApp - INVOKE "{url}" "{typ}" "{context}" "{target}" "{args}" "{kwargs}"'
-		)
+		log.warning(f'WKApp - INVOKE "{url}" "{typ}" "{context}" "{target}" "{args}" "{kwargs}"')
 		pycontext = None
 		if typ == "WKApp":
 			pycontext = self
