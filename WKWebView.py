@@ -102,7 +102,7 @@ class WKWebView(ui.View):
 		webview_config = WKWebView.WKWebViewConfiguration.new().autorelease()
 		webview_config.websiteDataStore = WKWebView.WKWebsiteDataStore.defaultDataStore()
 		webview_config.userContentController = user_content_controller
-
+		
 		data_detectors = sum(data_detectors) if type(data_detectors) is tuple \
       else data_detectors
 		webview_config.setDataDetectorTypes_(data_detectors)
@@ -111,10 +111,13 @@ class WKWebView(ui.View):
 		# errors, in combination with setting a
 		# base directory in the case of load_html
 		webview_config.preferences().setValue_forKey_(True, 'allowFileAccessFromFileURLs')
-		webview_config.setValue_forKey_(True, '_allowUniversalAccessFromFileURLs')
-
+		#webview_config.setValue_forKey_(True, '_allowUniversalAccessFromFileURLs')
 		if inline_media is not None:
 			webview_config.allowsInlineMediaPlayback = inline_media
+		else:
+			current_device = WKWebView.UIDevice.currentDevice()
+			webview_config.allowsInlineMediaPlayback = current_device.userInterfaceIdiom() == 1
+			
 		webview_config.allowsAirPlayForMediaPlayback = airplay_media
 		webview_config.allowsPictureInPictureMediaPlayback = pip_media
 
@@ -138,11 +141,9 @@ class WKWebView(ui.View):
 						raise Exception(
 						 "WKURLSchemeHandler cannot create custom scheme for '{scheme}'")
 					self.url_scheme_handlers[scheme] = getattr(self, key)
-					webview_config.setURLSchemeHandler_forURLScheme_(url_scheme_handler,
-					                                                 scheme)
-		self.url_scheme_task_pool = WKWebView._urlSchemeTaskPool(
-		 self.url_scheme_handlers)
-		 
+					webview_config.setURLSchemeHandler_forURLScheme_(url_scheme_handler, scheme)
+				
+		self.url_scheme_task_pool = WKWebView._urlSchemeTaskPool(self.url_scheme_handlers)
 		self.init_webview_config(webview_config)
 		self._create_webview(webview_config, nav_delegate, ui_delegate)
 
@@ -589,7 +590,7 @@ class WKWebView(ui.View):
 	WKWebsiteDataStore = ObjCClass('WKWebsiteDataStore')
 	NSDate = ObjCClass('NSDate')
 	NSHTTPURLResponse = ObjCClass('NSHTTPURLResponse')
-
+	UIDevice = ObjCClass('UIDevice')
 	# Navigation delegate
 
 	class _block_decision_handler(Structure):
