@@ -505,11 +505,7 @@ class WKAppPlugin:
 	def apply(self, callback, route):
 		# Enable cross origin isolation for browser to consider context secure enough for full web assembly and webgl support
 		# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements
-		#response.add_header('Access-Control-Allow-Origin', '')
-		#response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
-		response.add_header('Access-Control-Allow-Methods', '*')
-		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
-		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
+		#response.add_header('Permissions-Policy', 'cross-origin-isolated=self')
 		if not self.has_args(callback, 'view'):
 			return callback
 
@@ -579,6 +575,10 @@ class WKApp:
 	@property
 	def base_url(self):
 		return f'http://{self.host}:{self.port}'
+		
+	@property
+	def app_url(self):
+		return f'wkapp://app/'
 
 	def start_server(self):
 		if self.server is None and self.server_internal:
@@ -617,6 +617,11 @@ class WKApp:
 		return static_file(filepath, root=root)
 
 	def template(self, path, **kwargs):
+		response.add_header('Access-Control-Allow-Origin', '*')
+		response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
+		response.add_header('Access-Control-Allow-Methods', '*')
+		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
+		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
 		return self.views.template(path, **kwargs)
 
 	def get_view(self, url=None, path=None, create=False):
@@ -713,12 +718,21 @@ class WKApp:
 		
 	def webview_scheme_wkapp(self, webview, task):
 		command = task.host
-		if command == "proxy":
-			url = urldecode(task.path[1:])
+		if command == "app" or command == "proxy":
+			url = task.path
+			if command == "app":
+				url = self.base_url + url
+			else:
+				url = urldecode(url[1:])
+			
 			response = requests.request(task.method, url, headers = task.headers, data = task.body)
 			#print(response.headers.get('Content-Type'))
 			#print(response.content.decode("utf8"))
-			task.finish(status_code=response.status_code, data = response.content, content_type = response.headers.get('Content-Type'))
+			task.finish(
+				status_code=response.status_code, 
+				headers = response.headers,
+				data = response.content, 
+				content_type = response.headers.get('Content-Type'))
 
 
 if __name__ == '__main__':
