@@ -15,7 +15,9 @@ import inspect
 import os
 import sys
 import threading
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote as urldecode
+
+import requests
 
 import bottle
 from bottle import Bottle, default_app, BaseTemplate
@@ -45,6 +47,16 @@ except:
 
 class WKAppWebView(WKWebView):
 
+	def init(self):
+		self.scheme_handler = None
+
+	def scheme_wkapp(self, task):
+		log.warning(f'WKAppWebView - URL Scheme - {task.url}')
+		if not self.scheme_handler is None and hasattr(self.scheme_handler, 'webview_scheme_wkapp'):
+			self.scheme_handler.webview_scheme_wkapp(self,task)
+		else:
+			task.failed(f'WKAppWebView - URL Scheme Unhandled')
+		
 	def on_javascript_console_message(self, level, content):
 		log.warning(f'WKAppWebView - JS - {level.upper()}: {content}')
 
@@ -72,6 +84,7 @@ class WKAppView(ui.View):
 		if self.webview is None:
 			raise RuntimeError("WKWebView not loaded")
 		self.webview.delegate = self.app
+		self.webview.scheme_handler = self.app
 		self.webview.load_url(self.app.base_url, no_cache=True)
 
 	def will_close(self):
@@ -352,7 +365,7 @@ class WKViews:
 		imports = []
 		self.template_settings = {
 		 'directories': bottle.TEMPLATE_PATH,
-		 'module_directory': os.path.join(app_path, 'views-cache'),
+		 #'module_directory': os.path.join(app_path, 'views-cache'),
 		 'imports': imports,
 		 'preprocessor': WKViewsLexer.preprocessor,
 		 'lexer_cls': WKViewsLexer
@@ -493,7 +506,7 @@ class WKAppPlugin:
 	def apply(self, callback, route):
 		# Enable cross origin isolation for browser to consider context secure enough for full web assembly and webgl support
 		# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements
-		response.add_header('Access-Control-Allow-Origin', '')
+		#response.add_header('Access-Control-Allow-Origin', '')
 		#response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
 		response.add_header('Access-Control-Allow-Methods', '*')
 		#response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
@@ -700,6 +713,15 @@ class WKApp:
 			raise Exception(
 			 f"Target '{target} {pytarget}' in context {pycontext} not callable")
 		pytarget(*args, **kwargs)
+		
+	def webview_scheme_wkapp(self, webview, task):
+		command = task.host
+		if command == "proxy":
+			url = urldecode(task.path[1:])
+			response = requests.request(task.method, url, headers = task.headers, data = task.body)
+			print(response.headers.get('Content-Type'))
+			#print(response.content.decode("utf8"))
+			task.finish(status_code=response.status_code, data = response.content, content_type = response.headers.get('Content-Type'))
 
 
 if __name__ == '__main__':
