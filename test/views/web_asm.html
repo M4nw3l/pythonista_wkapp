@@ -1,0 +1,93 @@
+<%!
+
+class WebAsmView:
+	def on_init(self):
+		pass
+
+view_class = WebAsmView
+
+%>
+
+<%inherit file="view.html"/>
+<div class="p-1">
+<a href="/">Back to index.html</a>
+<p>
+<label>window.isSecureContext</label><br />
+<input id="window_secure_context" type="text" value="" />
+<br />
+<label>window.crossOriginIsolated</label><br />
+<input id="window_cross_origin_isolated" type="text" value="" />
+<br />
+
+<style type="text/css">
+textarea#stdout {
+  width : 95%; 
+  height : 80vh; 
+  overflow : auto;
+  font-style : monospace;
+  font-size : 10pt;
+  font-color : #808080;
+}
+</style>
+<textarea id="stdout" readonly>
+</textarea>
+</p>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.2/full/pyodide.js"></script>
+
+<script defer type="module">
+    import { init, Wasmer } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";	
+
+    function writeln(text) {
+        text = $("#stdout").text() + '\n' + text
+        $("#stdout").text(text)
+    }
+
+    async function runPyodide(){
+      try
+      {
+        writeln("Pyodide: init");
+        let pyodide = await loadPyodide();
+        writeln("Pyodide: loaded");
+        writeln(await pyodide.runPython("'hello' + ' pyodide'"));
+       }
+       catch(e)
+       {
+          writeln(`Error: $${e}`);
+       }
+    }
+
+    async function runPython() {
+
+
+        //await init();
+        try
+        {
+           await init();
+           writeln("Wasmer: init");
+           const packageName = "python/python";
+           
+           const pkg = await Wasmer.fromRegistry(packageName);
+           const instance = await pkg.entrypoint.run({
+              args: ["-c", "print('Hello, World!')"],
+           });
+           const { code, stdout } = await instance.wait();
+           console.log(`Python exited with $${code}: $${stdout}`);
+           writeln(stdout);
+        }
+        catch(e)
+        {
+        	writeln(`Error: $${e}`);
+        }
+    }
+    
+    $(async function () {
+    	console.log("ready");
+    	//alert("ready");
+   		 //$("#window_secure_context").val('hello');
+    	$("#window_secure_context").val(window.isSecureContext ? 'true' : 'false');
+    	$("#window_cross_origin_isolated").val(window.isSecureContext ? 'true': 'false');
+    	await runPyodide();
+    	await runPython();
+    });
+    //runPython();
+</script>
