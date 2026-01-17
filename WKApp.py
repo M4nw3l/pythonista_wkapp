@@ -719,7 +719,7 @@ class WKApp:
 		if command == "proxy":
 			url = urldecode(task.path[1:])
 			response = requests.request(task.method, url, headers = task.headers, data = task.body)
-			print(response.headers.get('Content-Type'))
+			#print(response.headers.get('Content-Type'))
 			#print(response.content.decode("utf8"))
 			task.finish(status_code=response.status_code, data = response.content, content_type = response.headers.get('Content-Type'))
 
