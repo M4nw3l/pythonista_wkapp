@@ -32,16 +32,16 @@ A simple view example:
 ```python
 <%!
 
-class MyFirstView:
+class ViewClass:
 	def on_init(self):
 		self.name = ''
 		
-	def test_action(self, text,*args):
+	def view_action(self, text,*args):
 		print(text,args)
 		self.element('header').set('text',f'hello javascript! text was {text} args were {args}')
 		
 
-view_class = MyFirstView
+view_class = ViewClass
 
 %>
 ```

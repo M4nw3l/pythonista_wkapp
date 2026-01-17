@@ -735,7 +735,6 @@ class WKApp:
 				url = self.base_url + url
 			else:
 				url = urldecode(url[1:])
-			
 			response = requests.request(task.method, url, headers = task.headers, data = task.body)
 			task.finish(
 				status_code=response.status_code, 

@@ -7,9 +7,11 @@ WKWebView - modern webview for Pythonista
 		 - Improved delegate object support 
 		 - Fixed content injection methods misrendering some js
 		 - Extended content injection methods to support reading from files
+		 - Extended javascript argument passing to python and vice versa with full json args serialisation
 		 - Added dispatcher queue thread to avoid deadlocks in callbacks / script message callbacks
 		   e.g eval_js can now be called from on_[script_message_name] handlers, webview_did_finish_load, 
 		   webview_did_start_load (if targets loaded)
+		 - Added custom schemes (WkURLSchemeHandler) support by adding a scheme_[schemeName](task) handler to a subclass.
 		 - Added some better handling for being notified when closing
 		 - Added some automatic cleanup on close e.g stopping the dispatcher thread
 '''
