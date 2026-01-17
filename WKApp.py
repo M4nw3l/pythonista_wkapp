@@ -333,7 +333,7 @@ class WKViews:
 			                                         'view_class'):
 				view_class = view_template.module.view_class
 
-				class view_class_mixin(WKView, view_class):
+				class view_class_mixin(view_class, WKView):
 					pass
 
 				view = view_class_mixin(
