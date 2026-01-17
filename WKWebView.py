@@ -70,7 +70,7 @@ class WKWebView(ui.View):
 	             pip_media=True,
 	             **kwargs):
 
-		self.init_webview()
+		self._init_webview()
 
 		WKWebView.webviews.append(self)
 		self.delegate = None
@@ -151,6 +151,10 @@ class WKWebView(ui.View):
 		                add_to_end=False,
 		                all_frames=True)
 		self.dispatcher.start()
+		self.init()
+		
+	def init(self): # post init handler for convenience in derived instances 
+		pass
 		
 	def init_webview_config(self, webview_config):
 		pass
@@ -175,7 +179,7 @@ class WKWebView(ui.View):
 		self.objc_instance.addSubview_(self.webview)
 
 	@on_main_thread
-	def init_webview(self):
+	def _init_webview(self):
 		# This work around appears to prevent a pythonista app crash
 		# it is probably initialising some memory / handles somewhere in UIKit
 		# before _create_webview sets up the real WKWebView instance
@@ -576,9 +580,6 @@ class WKWebView(ui.View):
 	WKWebsiteDataStore = ObjCClass('WKWebsiteDataStore')
 	NSDate = ObjCClass('NSDate')
 	NSHTTPURLResponse = ObjCClass('NSHTTPURLResponse')
-	NSException = ObjCClass('NSException')
-	class NSExceptionName(Structure):
-		_fields_ = [('genericException', ctypes.c_void_p)]
 
 	# Navigation delegate
 
@@ -869,6 +870,8 @@ class WKWebView(ui.View):
 				self.id = id
 				self.task = task
 				self.request = request
+				self.method = str(request.HTTPMethod())
+				self.body = None # obtained later in thread
 				url = request.URL()
 				self.request_url = url
 				self.url = str(url.absoluteString())
@@ -882,6 +885,7 @@ class WKWebView(ui.View):
 				if path != self.host and path.startswith(self.host):
 					path = path[len(self.host):]
 				self.path = path
+				self.query = str(url.query())
 				self.user = str(url.user())
 				self.password = str(url.password())
 				self.headers = {}
@@ -904,6 +908,9 @@ class WKWebView(ui.View):
 				self.started = True
 				self.running = True
 				try:
+					body = self.request.HTTPBody()
+					if body:
+						self.body = nsdata_to_bytes(body)
 					self.handler(self)
 					self.successful = True
 				except Exception as e:
@@ -915,7 +922,7 @@ class WKWebView(ui.View):
 					self.pool.task_cleanup(self)
 
 
-			def receive(self, response=None, data=None, content_type=None):
+			def receive(self, response=None, data=None, content_type=None, status_code=200, headers={}):
 				if self.cancel:
 					return
 				if self.finished:
@@ -931,9 +938,9 @@ class WKWebView(ui.View):
 						raise Exception('Response header already sent')
 					response = {} if response is None else response
 					url = response.get('url', self.url)
-					status = response.get('status', 200)
+					status = response.get('status', status_code)
 					version = response.get('version', 'HTTP/1.1')
-					headers = response.get('headers', {})
+					headers = response.get('headers', headers)
 					headers.setdefault('Content-Type', 'application/octet-stream')
 					if not content_type is None:
 						headers['Content-Type'] = content_type
@@ -952,13 +959,13 @@ class WKWebView(ui.View):
 					if not self.pool.is_stopped(self):
 						self.task.didReceiveData(data)
 
-			def finish(self, response=None, data=None, content_type = None):
+			def finish(self, **kwargs):
 				if self.cancel:
 					return
 				if self.finished:
 					raise Exception('Finish must not be called than once per task.')
-				if not response is None or not data is None:
-					self.receive(response, data, content_type)
+				if len(kwargs) > 0:
+					self.receive(**kwargs)
 				if not self.pool.is_stopped(self):
 					self.task.didFinish()
 				self.finished = True
@@ -969,12 +976,11 @@ class WKWebView(ui.View):
 				if self.finished:
 					raise Exception('Failure cannot be reported after task finish.')
 				self.cancel = True
-				name = WKWebView.NSExceptionName.genericException
 				reason = str(error)
-				ex = WKWebView.NSException.new()
-				ex.init(name, reason)
-				if not self.pool.is_stopped(self):
-					self.task.didFailWithError(ex)
+
+				#if not self.pool.is_stopped(self) and not self.receive_response is None:
+					#ex = WKWebView.CustomWKURLSchemeHandlerError.new().autorelease()
+					#self.task.didFailWithError(ex) # hard to create error objects to satisfy this without crashing.
 				self.finished = True
 
 		class _urlSchemeTaskWorker(threading.Thread):
@@ -1035,7 +1041,7 @@ class WKWebView(ui.View):
 			with self.worker_lock:
 				worker_count = len(self.workers)
 				avail = worker_count / task_count
-				print(avail, worker_count,task_count, self.max_workers / task_count)
+				#print(avail, worker_count,task_count, self.max_workers / task_count)
 				if avail < 0.25 and worker_count < self.max_workers:
 					worker = self._urlSchemeTaskWorker(self)
 					self.workers.append(worker)
@@ -1102,7 +1108,12 @@ class WKWebView(ui.View):
 	 superclass=NSObject,
 	 methods=[webView_startURLSchemeTask_, webView_stopURLSchemeTask_],
 	 protocols=['WKURLSchemeHandler'])
-
+	 
+	CustomWKURLSchemeHandlerError = create_objc_class(
+		'CustomWKURLSchemeHandlerError',
+		superclass=NSObject,
+		protocols=['Error']
+	)
 
 if __name__ == '__main__':
 	html = '''
@@ -1168,6 +1179,7 @@ if __name__ == '__main__':
         <img style="margin-left:-14px" src="wkwebview://green-image" />
          (<img src="wkwebview://red-image" /> <img src="wkwebview://green-image" /> <img src="wkwebview://blue-image" />)<br />
         Script: <img id="script_img" src="wkwebview://red-image" /><br />
+        Unhandled (failure test): <img src="wkwebview://unhandled" />
       </p>
       <script defer type="module">
       initialize();
