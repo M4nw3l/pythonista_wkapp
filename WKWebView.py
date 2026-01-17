@@ -100,8 +100,6 @@ class WKWebView(ui.View):
 				user_content_controller.addScriptMessageHandler_name_(
 				 custom_message_handler, message_name)
 
-		self.add_script(WKWebView.js_logging_script)
-
 		webview_config = WKWebView.WKWebViewConfiguration.new().autorelease()
 		webview_config.userContentController = user_content_controller
 
@@ -131,6 +129,7 @@ class WKWebView(ui.View):
 		self._create_webview(webview_config, nav_delegate, ui_delegate)
 
 		self.swipe_navigation = swipe_navigation
+		self.add_script(WKWebView.js_logging_script, add_to_end=False, all_frames=True)
 		self.dispatcher.start()
 
 	def will_close(self):
@@ -261,11 +260,11 @@ class WKWebView(ui.View):
 		if callback:
 			callback(result)
 
-	def add_script(self, js_script, add_to_end=True):
+	def add_script(self, js_script, add_to_end=True, all_frames=False):
 		location = 1 if add_to_end else 0
 		wk_script = WKWebView.WKUserScript.alloc().\
       initWithSource_injectionTime_forMainFrameOnly_(
-		        js_script, location, False)
+		        js_script, location, all_frames)
 		self.user_content_controller.addUserScript_(wk_script)
 
 	def add_style(self, css, add_to_end=True):
@@ -456,15 +455,14 @@ class WKWebView(ui.View):
      window.webkit.messageHandlers.javascript_console_message.postMessage(
       JSON.stringify({ level: "error", content: message})
      ); return false; };
-    window.onerror = (function(error, url, line, col, errorobj) {
+    window.onerror = function(error, url, line, col, errorobj) {
      console.error(
       "" + error + " (" + url + ", line: " + line + ", column: " + col + ")"
      );
-    });'''
+    };'''
 
-	def on_javascript_console_message(self, message):
-		log_message = json.loads(message)
-		#self.console.message(log_message)
+	def on_javascript_console_message(self, level, content):
+		log_message = {'level':level,'content':content}
 		self._message(log_message)
 
 	def _message(self, message):
@@ -722,15 +720,17 @@ class WKWebView(ui.View):
 		handler = getattr(webview, 'on_' + name, None)
 		deleg = webview.delegate
 		deleg_handler = getattr(deleg, 'webview_on_' + name, None) if deleg else None
-
 		def handle_script_message(webview, name, content, handler, deleg_handler):
 			#print("script message handler ",name,content,handler,deleg_handler)
 			args = []
 			kwargs = {}
 			try:
 				data = json.loads(content)
-				args = data['args'] if 'args' in data else args
-				kwargs = data['kwargs'] if 'kwargs' in data else kwargs
+				if 'args' in data or 'kwargs' in data:
+					args = data['args'] if 'args' in data else args
+					kwargs = data['kwargs'] if 'kwargs' in data else kwargs
+				else:
+					kwargs = data
 			except:
 				args.append(content)
 
