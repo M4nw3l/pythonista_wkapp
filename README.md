@@ -24,7 +24,9 @@ app.run()
 
 Run this file and you should see a fullscreen browser control and placeholder page shown. You can then just start making your own views straight away with Mako templates!
 
-To create your apps main view simply add a file `views/index.html`.
+To replace the main view / index placeholder simply create a file `views/index.html`, then add your html and setup a `view_class` mixin. An instance is created and maintained automatically for holding state, listening on view lifecycle events and two way interop between python and client-side javascript, providing element/DOM manipulation and wide flexibility to customise view/page behaviour. 
+
+A simple view example:
 
 ```html
 <%!
@@ -32,13 +34,10 @@ To create your apps main view simply add a file `views/index.html`.
 class MyFirstView:
 	def on_init(self):
 		self.name = ''
-	
-	def on_post(self,request,values,query):
-		print("POST received ", values,query)
-	
-	def test_action(self, text):
-		print(text)
-		self.element('header').set('text',f'hello javascript! text was {text}')
+		
+	def test_action(self, text,*args):
+		print(text,args)
+		self.element('header').set('text',f'hello javascript! text was {text} args were {args}')
 		
 
 view_class = MyFirstView
@@ -48,7 +47,7 @@ view_class = MyFirstView
 <!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
 <%inherit file="view.html"/>
 <!-- Your page content goes here -->
-<button onclick="view.invoke('test_action', 'hello python!')">Call Python</button>
+<button onclick="view.invoke('test_action', 'hello python!', 'pass','any','args',{},1,1.5)">Call Python</button>
 <button onclick="app.exit()">Exit Application</button>
 <div>
   <h1 id="header">Hello World!</h1>
