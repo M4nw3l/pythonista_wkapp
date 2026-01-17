@@ -192,7 +192,7 @@ class WKWebView(ui.View):
 			self.update_safe_area_insets()
 
 	@on_main_thread
-	def load_url(self, url, no_cache=False, timeout=10):
+	def load_url(self, url, no_cache=False, timeout=10, clear_cache = False):
 		""" Loads the contents of the given url
         asynchronously.
 
@@ -205,6 +205,15 @@ class WKWebView(ui.View):
           * Set `no_cache` to `True` to skip the local cache, default is `False`
           * Set `timeout` to a specific timeout value, default is 10 (seconds)
         """
+		def _load_url():
+			self._load_url(url, no_cache, timeout)
+
+		if clear_cache:
+			self.clear_cache(_load_url)
+		else:
+			_load_url()
+			
+	def _load_url(self, url, no_cache=False, timeout=10):
 		self.request_url = url
 		if url.startswith('file://'):
 			file_path = url[7:]
