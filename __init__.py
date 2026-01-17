@@ -7,9 +7,8 @@ from .WKApp import *
 # besides its implementation specific includes for the mako templating integration
 from bottle import (
  request,
+ response,
  route,
  static_file,
- mako_template as template,  # required for mako
- mako_view as view,  # required for mako
 )
 

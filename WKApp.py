@@ -30,6 +30,8 @@ from bottle import (
 )
 
 from mako.lookup import TemplateLookup
+from mako import parsetree
+from mako.lexer import Lexer
 
 import logging
 
@@ -252,6 +254,94 @@ class WKView:
 			func(*args, **kwargs)
 
 
+class WKViewsLexer(Lexer):
+
+	def match_expression(self):
+		match = self.match(r"(\$\$|%%){")
+		if not match is None:
+			# matches an 'escaped' expression for emitting an expression-like literal
+			escape = match.group(1)
+			match = self.match(r"(.*?)}", re.S)
+			self.append_node(parsetree.Text, escape[0] + "{" + match.group(1) + "}")
+			return True
+		match = self.match(r"(\$|%){") # match expressions with ${} or %{}
+		if not match:
+			return False
+		# matched expression
+		line, pos = self.matched_lineno, self.matched_charpos
+		text, end = self.parse_until_text(True, r"\|", r"}")
+		if end == "|":
+			escapes, end = self.parse_until_text(True, r"}")
+		else:
+			escapes = ""
+		text = text.replace("\r\n", "\n")
+		self.append_node(
+		 parsetree.Expression,
+		 text,
+		 escapes.strip(),
+		 lineno=line,
+		 pos=pos,
+		)
+		return True
+
+	def match_text(self):
+		match = self.match(
+		 r"""
+                (.*?)         # anything, followed by:
+                (
+                 (?<=\n)(?=[ \t]*(?=%|\#\#))  # an eval or line-based
+                                            # comment, preceded by a
+                                            # consumed newline and whitespace
+                 |
+                 (?=(\$\$|%%){)      # an escaped expression
+                 |
+                 (?=(\$|%){)      # an expression
+                 |
+                 (?=</?%)  # a substitution or block or call start or end
+                              # - don't consume
+                 |
+                 (\\\r?\n)    # an escaped newline  - throw away
+                 |
+                 \Z           # end of string
+                )""",
+		 re.X | re.S,
+		)
+		if match:
+			text = match.group(1)
+			if text:
+				self.append_node(parsetree.Text, text)
+			return True
+		else:
+			return False
+
+	@staticmethod
+	def preprocessor(template, *args, **kwargs):
+		#log.warning(f"WKViewsTemplate preprocess: {args} {kwargs}")
+		#log.warning(template)
+		return template
+
+
+class WKAppTemplate(bottle.MakoTemplate):
+
+	def prepare(self, **options):
+		from mako.template import Template
+		from mako.lookup import TemplateLookup
+		options.update({'input_encoding': self.encoding})
+		options.setdefault('format_exceptions', bool(bottle.DEBUG))
+		lookup = options.pop('template_lookup', None) # threading can cause problems here
+		if lookup is None:
+			directories = options.pop('directories', self.lookup)
+			lookup = TemplateLookup(directories=directories, **options)
+		if self.source:
+			self.tpl = Template(self.source, lookup=lookup, **options)
+		else:
+			self.tpl = Template(uri=self.name,
+			                    filename=self.filename,
+			                    lookup=lookup,
+			                    **options)
+
+wkapp_template = functools.partial(bottle.template, template_adapter=WKAppTemplate)
+
 class WKViews:
 
 	def __init__(self, app, app_path, app_views_path, module_path,
@@ -260,11 +350,14 @@ class WKViews:
 		bottle.TEMPLATE_PATH.append(app_views_path)
 		bottle.TEMPLATE_PATH.append(module_views_path)
 		imports = []
-		self.lookup = TemplateLookup(
-		 directories=bottle.TEMPLATE_PATH,
-		 #module_directory=os.path.join(app_path,'views-cache'),
-		 imports=imports,
-		)
+		self.template_settings = {
+		 'directories': bottle.TEMPLATE_PATH,
+		 'module_directory': os.path.join(app_path, 'views-cache'),
+		 'imports': imports,
+		 'preprocessor': WKViewsLexer.preprocessor,
+		 'lexer_cls': WKViewsLexer
+		}
+		self.lookup = TemplateLookup(**self.template_settings)
 		self.app = app
 		self.load_view = None
 		self.next_view = None
@@ -273,6 +366,9 @@ class WKViews:
 		self.views[self.view.url] = self.view
 		self.about_blank_view = WKView('about:blank')
 		self.views[self.about_blank_view.url] = self.about_blank_view
+
+	def template(self, path, **kwargs):
+		return wkapp_template(path, template_settings=self.template_settings, **kwargs)
 
 	@property
 	def base_url(self):
@@ -303,7 +399,7 @@ class WKViews:
 			path = '/' + path
 		if url is None and not path is None:
 			url = self.base_url + path
-		elif path is None and not url is None:
+		if path is None and not url is None:
 			parsed_url = urlparse(url)
 			path = parsed_url.path
 		if url == self.base_url + '/' or path == '/':
@@ -316,15 +412,15 @@ class WKViews:
 		url, path = self.get_url_path(url, path)
 		if url == 'about:blank':
 			return self.about_blank_view
-		if create and not url in self.views:
+		if create and not path in self.views:
 			try:
 				view_template = self.lookup.get_template(path)
 				if view_template is None:
 					raise Exception("Mako template not found.")
 				log.warning(f'WKViewState - Template found for {path} {view_template}')
-			except:
+			except Exception as e:
 				log.warning(
-				 f'WKViewState - No template found for path {path} {view_template}')
+				 f'WKViewState - No template found for path {path} {view_template}, {e}')
 			if not view_template is None and hasattr(view_template.module,
 			                                         'view_class'):
 				view_class = view_template.module.view_class
@@ -340,11 +436,8 @@ class WKViews:
 			else:
 				view = WKView(self.app, url, path, view_template)
 			self.views[path] = view
-			self.views[url] = view
 			return view
-		if not url is None:
-			view = self.views[url]
-		elif not path is None:
+		if not path is None:
 			view = self.views[path]
 		return view
 
@@ -400,8 +493,11 @@ class WKAppPlugin:
 	def apply(self, callback, route):
 		# Enable cross origin isolation for browser to consider context secure enough for full web assembly and webgl support
 		# https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements
-		response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
-		response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
+		response.add_header('Access-Control-Allow-Origin', '')
+		#response.add_header('Access-Control-Allow-Headers','"Origin, X-Requested-With, Content-Type, Accept"')
+		response.add_header('Access-Control-Allow-Methods', '*')
+		#response.add_header('Cross-Origin-Opener-Policy', 'same-origin')
+		#response.add_header('Cross-Origin-Embedder-Policy', 'require-corp')
 		if not self.has_args(callback, 'view'):
 			return callback
 
@@ -509,10 +605,11 @@ class WKApp:
 		return static_file(filepath, root=root)
 
 	def template(self, path, **kwargs):
-		return template(path, lookup=self.views.lookup, **kwargs)
+		return self.views.template(path, **kwargs)
 
 	def get_view(self, url=None, path=None, create=False):
 		view = self.views.get_view(url=url, path=path, create=create)
+		log.warning(f'WKApp.get_view("{url}", "{path}", {create}) -> {view}')
 		if view is None:
 			return view
 		values = {}
