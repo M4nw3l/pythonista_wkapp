@@ -1,0 +1,49 @@
+<%!
+
+class IndexPlaceHolderView:
+	def on_init(self):
+		self.name = ''
+		
+	def test_action(self, text,*args):
+		print(text,args)
+		self.element('header').set('text',f'hello javascript! text was {text} args were {args}')
+
+view_class = IndexPlaceHolderView
+
+%>
+
+<%inherit file="view.html"/>
+<div class="pt-2">
+
+<button onclick="app.exit()">Exit Application</button>
+
+<h3 class="pt-1">WKApp Test Views</h3>
+<ul>
+<li>
+<a href="/first_view.html">First view</a>
+</li>
+<li>
+<a href="/test_view.html">Test View</a>
+</li>
+</div>
+<style>
+textarea.code {
+	display: block;
+	width: 95%;
+	font-family: monospace;
+	border: 1px solid #bbb;
+	white-space:pre-wrap;
+	text-align:left;
+	field-sizing: content;
+}
+</style>
+
+<%def name="codeblock(text, rows=0)">
+	<%
+		if rows == 0:
+		  rows = text.count("\n")+1
+	%>
+	<textarea class="code" contenteditable="true" spellcheck="false" aria-label='Code Sample' rows="${rows}" readonly>
+	${text}
+	</textarea>
+</%def>

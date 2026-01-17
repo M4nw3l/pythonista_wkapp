@@ -16,6 +16,7 @@ view_class = MyFirstView
 <!-- inherit from the view.html template to render the views content inside the apps customisable base layout and structure -->
 <%inherit file="view.html"/>
 <!-- Your page content goes here -->
+<a href="/">Back to index.html</a>
 <button onclick="view.invoke('test_action', 'hello python!', 'pass','any','args',{},1,1.5)">Call Python</button>
 <button onclick="app.exit()">Exit Application</button>
 <div>
