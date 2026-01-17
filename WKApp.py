@@ -218,48 +218,30 @@ class WKElementsRef:
 
 class WKView:
 
-	def __init__(self, *args, **kwargs):
-		WKView.init(self, *args, **kwargs)
-
-	@classmethod
-	def init(cls,
-	         self,
-	         app=None,
-	         url='',
-	         path='',
-	         template=None,
-	         js=WKJavascript):
-
+	def __init__(self, app=None, url='', path='', template=None, js=WKJavascript):
 		self.app = app
 		self.url = url
 		self.path = path
 		self.template = template
 		self.js = js
+		self.event('on_init')
 
-		def webview():
-			return self.app.app_webview
+	def webview(self):
+		return self.app.app_webview
 
-		def eval_js(script):
-			return self.webview().eval_js(script)
+	def eval_js(self, script):
+		return self.webview().eval_js(script)
 
-		def eval_js_async(script):
-			return self.webview().eval_js_async(script)
+	def eval_js_async(self, script):
+		return self.webview().eval_js_async(script)
 
-		def elements(selector):
-			return WKElementsRef(self, selector, js)
+	def elements(self, selector):
+		return WKElementsRef(self, selector, self.js)
 
-		def element(id):
-			return WKElementsRef(self, f'#{id}', js)
+	def element(self, id):
+		return WKElementsRef(self, f'#{id}', self.js)
 
-		self.webview = webview
-		self.elements = elements
-		self.element = element
-		self.eval_js = eval_js
-		self.eval_js_async = eval_js_async
-		cls.event(self, 'on_init')
-
-	@classmethod
-	def event(cls, self, name, *args, **kwargs):
+	def event(self, name, *args, **kwargs):
 		if hasattr(self, name):
 			func = getattr(self, name)
 			func(*args, **kwargs)
@@ -350,12 +332,18 @@ class WKViews:
 			if not view_template is None and hasattr(view_template.module,
 			                                         'view_class'):
 				view_class = view_template.module.view_class
-				view = view_class()  # call parameterless func or class ctor
+
+				class view_class_mixin(WKView, view_class):
+					pass
+
+				view = view_class_mixin(
+				 self.app, url, path,
+				 view_template)  # call parameterless func or class ctor
 				if view is None:
 					raise Exception(
 					 f"view_class is defined but returned None or not an object value = '{view}'"
 					)
-				WKView.init(view, self.app, url, path, view_template)
+				#WKView.init(view, self.app, url, path, view_template)
 			else:
 				view = WKView(self.app, url, path, view_template)
 			self.views[path] = view
@@ -371,7 +359,7 @@ class WKViews:
 		log.warning(f'WKViewState - Preparing load {url}')
 		view = self.get_view(url=url, create=True)
 		self.load_view = view
-		WKView.event(view, 'on_prepare')
+		view.event('on_prepare')
 		return True
 
 	def start_load_view(self, url):
@@ -382,7 +370,7 @@ class WKViews:
 		self.load_view = None
 		view = self.get_view(url=url)
 		self.next_view = view
-		WKView.event(view, 'on_loading')
+		view.event('on_loading')
 
 	def finish_load_view(self, url):
 		log.warning(f'WKViewState - Finish load {url}')
@@ -392,7 +380,7 @@ class WKViews:
 		self.next_view = None
 		view = self.get_view(url=url)
 		self.view = view
-		WKView.event(view, 'on_loaded')
+		view.event('on_loaded')
 
 
 class WKApp:
@@ -511,7 +499,7 @@ class WKApp:
 					values[k] = v
 					if hasattr(view, k):
 						setattr(view, k, v)
-			WKView.event(view, 'on_' + method, **kwargs)
+			view.event('on_' + method, **kwargs)
 			return view
 
 		@route('/<filepath:path>')
@@ -525,8 +513,12 @@ class WKApp:
 			return self.template(filepath, view=view)
 
 		@route('/')
-		def server_index():
+		def server_index_get():
 			return server_template_get('index.html')
+
+		@route('/', method='POST')
+		def server_index_post():
+			return server_template_post('index.html')
 
 	@property
 	def app_view(self):
