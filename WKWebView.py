@@ -110,8 +110,8 @@ class WKWebView(ui.View):
 		# Must be set to True to get real js
 		# errors, in combination with setting a
 		# base directory in the case of load_html
-		webview_config.preferences().setValue_forKey_(True,
-		                                              'allowFileAccessFromFileURLs')
+		webview_config.preferences().setValue_forKey_(True, 'allowFileAccessFromFileURLs')
+		webview_config.setValue_forKey_(True, '_allowUniversalAccessFromFileURLs')
 
 		if inline_media is not None:
 			webview_config.allowsInlineMediaPlayback = inline_media
@@ -940,12 +940,20 @@ class WKWebView(ui.View):
 					url = response.get('url', self.url)
 					status = response.get('status', status_code)
 					version = response.get('version', 'HTTP/1.1')
-					headers = response.get('headers', headers)
+					response_headers = response.get('headers',{})
+					headers_copy = {}
+					for k in response_headers.keys():
+						headers_copy[k]=response_headers[k]
+					for k in headers.keys():
+						headers_copy[k]=headers[k]
+					headers = headers_copy
 					headers.setdefault('Content-Type', 'application/octet-stream')
+					headers.setdefault('Content-Length', '0')
 					if not content_type is None:
 						headers['Content-Type'] = content_type
-					headers.setdefault('Content-Length',
-					                   str(len(data)) if not data is None else '0')
+					if not data is None:
+						headers['Content-Length'] = str(len(data))
+
 					origin = self.headers.get('Origin', None)
 					if not origin is None: # permit CORS when Origin specified
 						headers.setdefault("Access-Control-Allow-Origin", origin)
