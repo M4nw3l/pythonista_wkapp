@@ -125,7 +125,20 @@ class WKWebView(ui.View):
 		ui_delegate = WKWebView.CustomUIDelegate.new()
 		retain_global(ui_delegate)
 		ui_delegate._pythonistawebview = weakref.ref(self)
-
+		
+		url_scheme_handler = WKWebView.CustomURLSchemeHandler.new()
+		retain_global(url_scheme_handler)
+		url_scheme_handler._pythonistawebview = weakref.ref(self)
+		self.url_scheme_handlers = {}
+		for key in dir(self):
+			if key.startswith('scheme_'):
+				scheme = key[7:]
+				if not scheme in self.url_scheme_handlers:
+					if WKWebView.WKWebView.handlesURLScheme_(scheme):
+						raise Exception("WKURLSchemeHandler cannot create custom scheme for '{scheme}'")
+					self.url_scheme_handlers[scheme] = getattr(self,key)
+					webview_config.setURLSchemeHandler_forURLScheme_(url_scheme_handler,scheme)
+		self.url_scheme_task_pool = WKWebView._urlSchemeTaskPool(self.url_scheme_handlers)
 		self._create_webview(webview_config, nav_delegate, ui_delegate)
 
 		self.swipe_navigation = swipe_navigation
@@ -576,7 +589,7 @@ class WKWebView(ui.View):
 				if allow and deleg is not None:
 					if hasattr(deleg, 'webview_should_start_load'):
 						allow = deleg.webview_should_start_load(webview, url, scheme, nav_type)
-				if allow and not WKWebView.WKWebView.handlesURLScheme_(scheme):
+				if allow and not scheme in webview.url_scheme_handlers and not WKWebView.WKWebView.handlesURLScheme_(scheme):
 					allow = False
 					webview.current_url = url
 					webbrowser.open(url)
@@ -826,8 +839,131 @@ class WKWebView(ui.View):
 	  webView_runJavaScriptTextInputPanelWithPrompt_defaultText_initiatedByFrame_completionHandler_
 	 ],
 	 protocols=['WKUIDelegate'])
+	 
+	class _urlSchemeTaskPool:
+		class _urlSchemeTask:
+			def __init__(self, id, task, request):
+				self.id = id
+				self.task = task
+				self.request = request
+				self.request_url = self.request.URL()
+				self.url = str(self.request_url.absoluteString())
+				self.scheme = str(self.request_url.scheme())
+				self.handler = None
+				self.running = False
+				self.cancel = False
+				self.successful = False
+				self.started = False
+				self.terminated = False
+				self.error = None
+				
+			def run(self):
+				self.started = True
+				self.running = True
+				try:
+					self.handler(self)
+					self.successful = True
+				except Exception as e:
+					self.error = e
+					log.error(f"WKWebView WKURLSchemeTask error processing '{self.url}' {e}")
+				finally:
+					self.running = False
+					self.terminated = True
 
+		class _urlSchemeTaskWorker(threading.Thread):
+			def __init__(self, pool):
+				super().__init__()
+				self.daemon = True
+				self.pool = pool
+				self.running = False
+				self.idle = 0
+				self.max_idle = 10
+				
+			def run(self):
+				self.running = True
+				while self.running:
+					if len(self.pool.queue) > 0:
+						self.idle = 0
+						task = self.pool.queue.pop()
+						task.run()
+						del self.pool.tasks[task.id]
+					elif self.idle < self.max_idle:
+						sleep = time.time()
+						time.sleep(0.1)
+						sleep = time.time() - sleep
+						self.idle = self.idle + sleep
+					else:
+						break
+				self.running = False
+				
+			def stop(self, join=True):
+				self.running = False
+				if join:
+					self.join()
+					
+		def __init__(self, handlers):
+			self.handlers = handlers
+			self.workers = []
+			self.queue = []
+			self.tasks = {}
+			self.max_workers = 4
 
+		def task_start(self, id, task, request):
+			pool_task = self._urlSchemeTask(id, task,request)
+			pool_task.handler = self.handlers[pool_task.scheme]
+			self.tasks[id] = pool_task
+			self.queue.append(pool_task)
+			task_count = len(self.tasks) + 1
+			worker_count = len(self.workers)
+			avail = worker_count / task_count
+			if avail < 1 and worker_count < self.max_workers:
+				worker = self._urlSchemeTaskWorker(self)
+				self.workers.append(worker)
+				worker.start()
+			
+		def task_stop(self, id, task, request):
+			if not id in self.tasks:
+				return
+			pool_task = self.tasks[id]
+			pool_task.cancel = True
+			del self.tasks[id]
+	
+	
+	def webView_startURLSchemeTask_(_self,_cmd,_webview,_task):
+		delegate_instance = ObjCInstance(_self)
+		webview = delegate_instance._pythonistawebview()
+		task_instance = ObjCInstance(_task)
+		task_request = task_instance.request()
+		webview.url_scheme_task_pool.task_start(_task, task_instance, task_request)
+		
+	f = webView_startURLSchemeTask_
+	f.argtypes = [c_void_p] * 2
+	f.restype = None
+	f.encoding = b'v@:@@?'
+
+	def webView_stopURLSchemeTask_(_self,_cmd,_webview,_task):
+		delegate_instance = ObjCInstance(_self)
+		webview = delegate_instance._pythonistawebview()
+		task_instance = ObjCInstance(_task)
+		task_request = task_instance.request()
+		webview.url_scheme_task_pool.task_stop(_task, task_instance, task_request)
+
+	f = webView_stopURLSchemeTask_
+	f.argtypes = [c_void_p] * 2
+	f.restype = None
+	f.encoding = b'v@:@@?'
+
+	# WKURLSchemeHandler - custom url schemes handler for proxying assets
+	CustomURLSchemeHandler = create_objc_class(
+	 'CustomURLSchemeHandler',
+	 superclass=NSObject,
+	 methods=[
+	  webView_startURLSchemeTask_,
+	  webView_stopURLSchemeTask_
+	 ],
+	 protocols=['WKURLSchemeHandler'])
+
+	
 if __name__ == '__main__':
 	html = '''
   <html>
@@ -835,15 +971,17 @@ if __name__ == '__main__':
     <title>WKWebView tests</title>
     <script>
       function initialize() {
+      	//alert('init');
         //result = prompt('Initialized', 'Yes, indeed');
         //if (result) {
           //window.webkit.messageHandlers.greeting.postMessage(
           //    result ? result : "<Dialog cancelled>");
         //}
+        let wasmer = import("wkwebview://"+encodeURIComponent("https://app.unpkg.com/@wasmer/sdk@latest/files/dist/index.mjs"));
       }
     </script>
   </head>
-  <body onload="initialize()" style="font-size: xx-large; text-align: center">
+  <body onload="" style="font-size: xx-large; text-align: center">
     <p>
       Hello world
     </p>
@@ -856,6 +994,11 @@ if __name__ == '__main__':
     <p>
       http://omz-software.com/pythonista/
     </p>
+    <img src="wkwebview://image" />-->
+    <a href="wkwebview://hello">Custom Scheme</a>
+    <script defer type="module">
+      initialize();
+    </script>
   </body>
   '''
 
@@ -866,6 +1009,9 @@ if __name__ == '__main__':
 			              'Message passed to Python',
 			              'OK',
 			              hide_cancel_button=True)
+		
+		def scheme_wkwebview(self,task):
+			print(f"wkwebview scheme: {task.url}")
 
 	class MyView(ui.View):
 
@@ -880,9 +1026,8 @@ if __name__ == '__main__':
 			                         frame=self.bounds,
 			                         flex='WH')
 			self.add_subview(self.webview)
-			self.webview.load_url('http://omz-software.com/pythonista/',
-			                      no_cache=False,
-			                      timeout=5)
+				
+			self.webview.load_url('http://omz-software.com/pythonista/',no_cache=False, timeout=5)
 			#self.webview.load_html(html)
 			#self.webview.load_file('layout.html','views-test/base')
 			#self.webview.load_file('views-test/base/layout.html','/')
