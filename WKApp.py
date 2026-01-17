@@ -42,10 +42,10 @@ except:
 
 
 class WKAppWebView(WKWebView):
-	
+
 	def on_javascript_console_message(self, level, content):
 		log.warning(f'WKAppWebView - JS - {level.upper()}: {content}')
-			
+
 	def webview_did_start_load(self, url):
 		log.warning(f'WKAppWebView - Start loading {url}')
 
@@ -260,15 +260,6 @@ class WKViews:
 		bottle.TEMPLATE_PATH.append(app_views_path)
 		bottle.TEMPLATE_PATH.append(module_views_path)
 		imports = []
-		#imports.append("import sys")
-		if app_path == module_path:
-
-			#imports.append("from WKApp import WKView")
-			pass
-		else:
-			#imports.append("import wkapp")
-			#imports.append("from wkapp.WKApp import WKView")
-			pass
 		self.lookup = TemplateLookup(
 		 directories=bottle.TEMPLATE_PATH,
 		 #module_directory=os.path.join(app_path,'views-cache'),
@@ -341,9 +332,7 @@ class WKViews:
 				class view_class_mixin(view_class, WKView):
 					pass
 
-				view = view_class_mixin(
-				 self.app, url, path,
-				 view_template)  # call parameterless func or class ctor
+				view = view_class_mixin(self.app, url, path, view_template)
 				if view is None:
 					raise Exception(
 					 f"view_class is defined but returned None or not an object value = '{view}'"
