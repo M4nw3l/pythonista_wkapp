@@ -100,5 +100,3 @@ The base app html template bundles with it Bootstrap and JQuery to offer a way t
 
 - [Bootstrap 5.3.8](https://getbootstrap.com/docs/5.3/getting-started/introduction/)
 - [JQuery 3.7.1](https://jquery.com)
-
-
