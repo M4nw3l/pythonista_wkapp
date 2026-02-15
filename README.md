@@ -96,7 +96,10 @@ WKApp requires the Pythonista 3 app on iOS to run but otherwise uses a minimal s
 	- 1.0 [Github (@mikaelho)](https://github.com/mikaelho/pythonista-webview)
 
 ### Bundled Web frontend libraries:
-The base app html template bundles with it Bootstrap and JQuery to offer a way to just start developing apps rapidly right away straight out of the box. However if you prefer other frameworks rest assured the `base/app.html` template can be replaced. Its as simple as creating your own version of the template using the same directory structure in your apps views folder. 
+The base app html template bundles with it Bootstrap and JQuery to offer a way to just start developing apps rapidly right away straight out of the box. 
+However if you prefer other frameworks the `base/app.html` template can also be customised. 
+Simply create a copy of `views/base/app.html` from the repository and add it to your `views` folder in the same structure `views/base/app.html`.
+Any base template file may be replaced in this same way.
 
 - [Bootstrap 5.3.8](https://getbootstrap.com/docs/5.3/getting-started/introduction/)
 - [JQuery 3.7.1](https://jquery.com)
